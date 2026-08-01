@@ -4,6 +4,7 @@
 #include <minwindef.h>
 #include <windef.h>
 #include <windows.h>
+#include <windowsx.h>
 
 #include "core/platform/platform.h"
 #include "input.h"
@@ -137,6 +138,9 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             process_mouse_button(mouse_button, pressed);
         } break;
         case WM_MOUSEMOVE: {
+            int x = GET_X_LPARAM(lparam);
+            int y = GET_Y_LPARAM(lparam);
+            process_mouse_position(x, y);
             // @todo
         } break;
         case WM_ERASEBKGND:
