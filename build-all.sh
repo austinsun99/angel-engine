@@ -22,11 +22,8 @@ echo
 echo "Building to ${build_opt}"
 time bear -- make BUILD=${build_opt}
 
-echo
 echo "----- BUILD FINISHED -----"
 echo
 
 ./build/${build_dir}/bin/sandbox
 exit 1
-
-

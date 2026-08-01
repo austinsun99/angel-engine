@@ -1,9 +1,9 @@
 CXX := g++
 
 INCLUDES := -I.
-DEPFLAGS := -MMD -MD
+DEPFLAGS := -MMD -MP
 WARNINGS :=
-DEFINES :=
+DEFINES := -DPASTEL_EXPORT
 
 #
 # --- DEBUG & RELEASE MODE ---
@@ -36,20 +36,18 @@ OBJ_DIR := $(BUILD_DIR)/obj/pastel
 GEN_DIR := $(BUILD_DIR)/gen
 LIB_DIR := $(BUILD_DIR)/lib
 
-SRCS := $(call rwildcard,.,*.cpp,*.c)
-OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
-DEPS := $(OBJS:.o=.d)
+SRCS := $(call rwildcard,.,*.cpp) $(call rwildcard,.,*.c)
 
 #
 # --- CHECK WAYLAND SESSION ---
 #
 WAYLAND_SESSION := false
 ifeq ($(OS),Windows_NT)
-	EXT := .dll
+	TARGET := $(LIB_DIR)/pastel.dll
+	LIBFLAGS := -shared -Wl,--out-implib,$(LIB_DIR)/libpastel.a
 else
 	UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
-	EXT := .so
 	DISPLAY_SERVER := $(shell \
 					  if [ "$$XDG_SESSION_TYPE" = "wayland" ]; then echo "wayland"; \
 					  elif [ -n "$$WAYLAND_DISPLAY" ]; then echo "wayland"; \
@@ -58,9 +56,10 @@ ifeq ($(UNAME),Linux)
 	ifeq ($(DISPLAY_SERVER),wayland)
 	WAYLAND_SESSION := true
 	endif
+	TARGET := $(LIB_DIR)/libpastel.so
+	LIBFLAGS := -shared -fPIC
 endif
 endif
-TARGET := $(LIB_DIR)/libpastel$(EXT)
 
 #
 # --- GENERATE WAYLAND FILES ---
@@ -88,18 +87,21 @@ INCLUDES += -I$(GEN_DIR)
 LIBS += -lwayland-client -lrt
 endif
 
+OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
+DEPS := $(OBJS:.o=.d)
+
 #
 # --- FLAGS ---
 #
-CXXFLAGS := -fPIC $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT)
-LDFLAGS := -shared $(LIBDIRS)
+CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT)
+LDFLAGS := $(LIBFLAGS) $(LIBDIRS)
 LDLIBS := $(LIBS)
 
 #
 # --- RECIPES ---
 #
 .PHONY: all clean
-.SILENT:
+# .SILENT:
 
 all: $(TARGET)
 
@@ -108,9 +110,12 @@ $(TARGET): $(OBJS)
 	$(info >>> $@ <<<)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
 
-$(OBJS): $(SRCS)
+$(OBJ_DIR)/%.o: %
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR)
 
 -include $(DEPS)

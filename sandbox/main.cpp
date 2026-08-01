@@ -1,7 +1,7 @@
 #include <iostream>
+#include <ostream>
 #include "core/core.h"
 
 int main() {
-    int x = test("Hello");
-    std::cout << 5 << std::endl;
+    int _ = test("Hello");
 }

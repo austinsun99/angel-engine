@@ -8,7 +8,7 @@ DEFINES :=
 OPT :=
 
 LIBS := -lpastel
-RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
+RPATH := -Wl,-rpath,'$$ORIGIN'
 
 #
 # --- DEBUG AND RELEASE
@@ -47,17 +47,19 @@ rwildcard = $(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(
 OBJ_DIR := $(BUILD_DIR)/obj/sandbox
 BIN_DIR := $(BUILD_DIR)/bin
 
-SRCS := $(call rwildcard,.,*.cpp,*.c)
+SRCS := $(call rwildcard,.,*.cpp) $(call rwildcard,.,*.c)
 OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 ifeq ($(OS),Windows_NT)
 	EXT := .exe
+	POSTBUILD := cp $(ENGINE_LIB_DIR)/pastel.dll $(BIN_DIR)/ && \
+				 echo && \
+				 echo "copying pastel.dll to bin dir. (windows only)"
+				
 else
-	UNAME := $(shell uname)
-	ifeq ($(UNAME),Linux)
-		EXT :=
-	endif
+	EXT :=
+	POSTBUILD :=
 endif
 TARGET := $(BIN_DIR)/sandbox$(EXT)
 
@@ -73,8 +75,9 @@ $(TARGET): $(OBJS)
 	mkdir -p $(dir $@)
 	$(info >>> $@ <<<)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
+	$(POSTBUILD)
 
-$(OBJS): $(SRCS)
+$(OBJ_DIR)/%.o: %
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
