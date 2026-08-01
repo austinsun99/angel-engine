@@ -5,8 +5,6 @@
 #include <windef.h>
 #include <windows.h>
 
-#include <cstdint>
-
 #include "core/platform/platform.h"
 #include "input.h"
 
