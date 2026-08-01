@@ -30,4 +30,4 @@ make BUILD=%build_opt%
 echo ----- BUILD FINISHED -----
 echo: 
 
-start "" /D "build\%build_dir%\bin\" "sandbox.exe"
+"build\%build_dir%\bin\sandbox.exe"

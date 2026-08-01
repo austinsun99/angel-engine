@@ -1,7 +1,23 @@
 BasedOnStyle: Google
 
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+AlignConsecutiveDeclarations:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: true
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: true
+
 AllowShortFunctionsOnASingleLine: None
 AlwaysBreakBeforeMultilineStrings: true
+
+BinPackArguments: false
+BinPackParameters: false
+
 ColumnLimit: 120
 IndentPPDirectives: AfterHash
 IndentWidth: 4
