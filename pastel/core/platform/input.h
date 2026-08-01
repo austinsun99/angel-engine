@@ -2,6 +2,7 @@
 
 // @todo: place into namespace
 
+#include <cstdint>
 #include "defines.h"
 enum MouseButton {
     LEFT,
@@ -164,6 +165,7 @@ PASTEL_API void input_update();
 
 void process_key(Keycode key, bool pressed);
 void process_mouse_button(MouseButton button, bool pressed);
+void process_mouse_position(uint16_t x, uint16_t y);
 
 // @todo: for debugging purposes only. remove.
 PASTEL_API void print_pressed_keys();
