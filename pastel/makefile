@@ -13,7 +13,7 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT := -O0
 	DEBUGFLAGS := -g
-	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter
+	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=attributes -Wno-attributes
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)
 	DEFINES += -DNDEBUG
@@ -48,6 +48,8 @@ ifeq ($(OS),Windows_NT)
 else
 	UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
+	TARGET := $(LIB_DIR)/libpastel.so
+	LIBFLAGS := -shared
 	DISPLAY_SERVER := $(shell \
 					  if [ "$$XDG_SESSION_TYPE" = "wayland" ]; then echo "wayland"; \
 					  elif [ -n "$$WAYLAND_DISPLAY" ]; then echo "wayland"; \
@@ -56,8 +58,6 @@ ifeq ($(UNAME),Linux)
 	ifeq ($(DISPLAY_SERVER),wayland)
 	WAYLAND_SESSION := true
 	endif
-	TARGET := $(LIB_DIR)/libpastel.so
-	LIBFLAGS := -shared -fPIC
 endif
 endif
 
@@ -93,7 +93,7 @@ DEPS := $(OBJS:.o=.d)
 #
 # --- FLAGS ---
 #
-CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT)
+CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT) -fPIC
 LDFLAGS := $(LIBFLAGS) $(LIBDIRS)
 LDLIBS := $(LIBS)
 
@@ -101,7 +101,7 @@ LDLIBS := $(LIBS)
 # --- RECIPES ---
 #
 .PHONY: all clean
-# .SILENT:
+.SILENT:
 
 all: $(TARGET)
 

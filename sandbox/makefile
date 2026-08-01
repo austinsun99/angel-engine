@@ -8,7 +8,7 @@ DEFINES :=
 OPT :=
 
 LIBS := -lpastel
-RPATH := -Wl,-rpath,'$$ORIGIN'
+RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
 
 #
 # --- DEBUG AND RELEASE
