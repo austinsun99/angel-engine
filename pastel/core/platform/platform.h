@@ -11,6 +11,7 @@ struct WindowConfig {
 };
 
 struct WindowState {
+    bool running;
     int width;
     int height;
     void *internal_state;

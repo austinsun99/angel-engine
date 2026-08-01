@@ -9,7 +9,7 @@ WindowState init_window_win(WindowConfig config) {
     InternalState *internal = new InternalState();
     internal->x = 5;
 
-    WindowState state = {.width = config.width, .height = config.height, .internal_state = internal};
+    WindowState state = {.running = true, .width = config.width, .height = config.height, .internal_state = internal};
     return state;
 }
 
