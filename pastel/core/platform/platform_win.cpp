@@ -5,7 +5,10 @@
 #include <windef.h>
 #include <windows.h>
 
+#include <cstdint>
+
 #include "core/platform/platform.h"
+#include "input.h"
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -101,12 +104,51 @@ void deinit_window_win(WindowState *const state) {
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYUP: {
+            const bool pressed = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+            const Keycode key  = static_cast<Keycode>(wparam);
+
+            process_key(key, pressed);
+        } break;
+        case WM_LBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_MBUTTONUP:
+        case WM_RBUTTONUP: {
+            const bool pressed       = msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN;
+            MouseButton mouse_button = MouseButton::MAX_BUTTONS;
+            switch (msg) {
+                case WM_LBUTTONDOWN:
+                case WM_LBUTTONUP:
+                    mouse_button = MouseButton::LEFT;
+                    break;
+                case WM_MBUTTONDOWN:
+                case WM_MBUTTONUP:
+                    mouse_button = MouseButton::MIDDLE;
+                    break;
+                case WM_RBUTTONDOWN:
+                case WM_RBUTTONUP:
+                    mouse_button = MouseButton::RIGHT;
+                    break;
+            }
+
+            process_mouse_button(mouse_button, pressed);
+        } break;
+        case WM_MOUSEMOVE: {
+            // @todo
+        } break;
         case WM_ERASEBKGND:
             // A nonzero return value to indicate the program handles erasing the background.
             return 1;
         case WM_CLOSE: {
             const WORD system_language = 0;
             if (MessageBoxEx(hwnd, "Quit program?", "Quit", MB_OKCANCEL, system_language) == IDOK) {
+                // @todo: halt execution of program on destroy window.
+                // @todo: include some callback before complete application shutdown.
                 DestroyWindow(hwnd);
             }
             return 0;

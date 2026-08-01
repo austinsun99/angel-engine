@@ -2,6 +2,7 @@
 
 // @todo: place into namespace
 
+#include <cstdint>
 #include "defines.h"
 enum MouseButton {
     LEFT,
@@ -11,7 +12,7 @@ enum MouseButton {
 };
 
 // The keycodes listed here match the virtual key codes defined by Winuser.h
-enum Keycode {
+enum Keycode : std::int16_t {
     BACK = 0x08,
     TAB = 0x09,
 
@@ -39,7 +40,7 @@ enum Keycode {
     EXECUTE,
     PRINTSCRN,
     INSERT,
-    DELETE,
+    DEL,
     HELP,
 
     // The keys 0-9 and A-Z match the ASCII equivalents
@@ -99,7 +100,7 @@ enum Keycode {
     ADD,
     SEPARATOR,
     SUBTRACT,
-    DECIMAL,
+    DEC,
     DIVIDE,
 
     F1 = 0x70,
