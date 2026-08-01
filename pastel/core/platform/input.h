@@ -40,7 +40,7 @@ enum Keycode {
     EXECUTE,
     PRINTSCRN,
     INSERT,
-    DELETE,
+    DEL,
     HELP,
 
     // The keys 0-9 and A-Z match the ASCII equivalents
@@ -100,7 +100,7 @@ enum Keycode {
     ADD,
     SEPARATOR,
     SUBTRACT,
-    DECIMAL,
+    DEC,
     DIVIDE,
 
     F1 = 0x70,
