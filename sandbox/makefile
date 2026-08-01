@@ -18,7 +18,7 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT += -O0
 	DEBUGFLAGS += -g
-	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-variable
+	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)
 	DEFINES += -DNDEBUG

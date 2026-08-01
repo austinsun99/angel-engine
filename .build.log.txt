@@ -2,16 +2,22 @@ C:/ProgramData/chocolatey/lib/make/tools/bin/make --print-directory BUILD=DEBUG 
 core/core.cpp...
 make[1]: Entering directory `C:/Users/Austin/dev/sandbox/cpp/game-engine/pastel'
 mkdir -p ../build/debug/obj/pastel/./core/
-g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-variable -g -DPASTEL_EXPORT -DDEBUG -O0 -c core/core.cpp -o ../build/debug/obj/pastel/./core/core.cpp.o
+g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -g -DPASTEL_EXPORT -DDEBUG -O0 -c core/core.cpp -o ../build/debug/obj/pastel/./core/core.cpp.o
+core/platform/platform.cpp...
+mkdir -p ../build/debug/obj/pastel/./core/platform/
+g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -g -DPASTEL_EXPORT -DDEBUG -O0 -c core/platform/platform.cpp -o ../build/debug/obj/pastel/./core/platform/platform.cpp.o
+core/platform/platform_win.cpp...
+mkdir -p ../build/debug/obj/pastel/./core/platform/
+g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -g -DPASTEL_EXPORT -DDEBUG -O0 -c core/platform/platform_win.cpp -o ../build/debug/obj/pastel/./core/platform/platform_win.cpp.o
 >>> ../build/debug/lib/pastel.dll <<<
 mkdir -p ../build/debug/lib/
-g++ ../build/debug/obj/pastel/./core/core.cpp.o -shared -Wl,--out-implib,../build/debug/lib/libpastel.a   -o ../build/debug/lib/pastel.dll
+g++ ../build/debug/obj/pastel/./core/core.cpp.o ../build/debug/obj/pastel/./core/platform/platform.cpp.o ../build/debug/obj/pastel/./core/platform/platform_win.cpp.o -shared -Wl,--out-implib,../build/debug/lib/libpastel.a   -o ../build/debug/lib/pastel.dll
 make[1]: Leaving directory `C:/Users/Austin/dev/sandbox/cpp/game-engine/pastel'
 C:/ProgramData/chocolatey/lib/make/tools/bin/make --print-directory BUILD=DEBUG -C sandbox 
 main.cpp...
 make[1]: Entering directory `C:/Users/Austin/dev/sandbox/cpp/game-engine/sandbox'
 mkdir -p ../build/debug/obj/sandbox/./
-g++ -I../pastel -MMD -MD  -Wall -Wextra -Werror -Wno-error=unused-variable  -g  -DDEBUG  -O0 -c main.cpp -o ../build/debug/obj/sandbox/./main.cpp.o
+g++ -I../pastel -MMD -MD  -Wall -Wextra -Werror -Wno-error=unused-parameter  -g  -DDEBUG  -O0 -c main.cpp -o ../build/debug/obj/sandbox/./main.cpp.o
 >>> ../build/debug/bin/sandbox.exe <<<
 mkdir -p ../build/debug/bin/
 g++ ../build/debug/obj/sandbox/./main.cpp.o -L../build/debug/lib -Wl,-rpath,'$ORIGIN' -lpastel -o ../build/debug/bin/sandbox.exe
