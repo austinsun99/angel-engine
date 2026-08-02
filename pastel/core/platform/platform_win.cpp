@@ -1,13 +1,15 @@
-#include "platform_win.h"
+#include "defines.h"
+#if defined(PLATFORM_WINDOWS)
 
-#include <libloaderapi.h>
-#include <minwindef.h>
-#include <windef.h>
-#include <windows.h>
-#include <windowsx.h>
+#    include <libloaderapi.h>
+#    include <minwindef.h>
+#    include <windef.h>
+#    include <windows.h>
+#    include <windowsx.h>
 
-#include "core/platform/platform.h"
-#include "input.h"
+#    include "core/platform/platform.h"
+#    include "input.h"
+#    include "platform_win.h"
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -161,3 +163,4 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
+#endif

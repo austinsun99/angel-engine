@@ -20,7 +20,8 @@ echo "----- BUILDING -----"
 echo
 
 echo "Building to ${build_opt}"
-time bear -- make BUILD=${build_opt}
+
+bear -- make BUILD=${build_opt}
 
 echo "----- BUILD FINISHED -----"
 echo

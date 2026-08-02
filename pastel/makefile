@@ -1,3 +1,4 @@
+CC := gcc
 CXX := g++
 
 INCLUDES := -I.
@@ -71,18 +72,20 @@ $(info )
 
 WAYLAND_SHELL_DIR := external/wayland-protocols/xdg-shell
 WAYLAND_SHELL_PROTOCOL := $(WAYLAND_SHELL_DIR)/xdg-shell.xml
+XDG_SHELL_PROTOCOL_PATH := $(GEN_DIR)/xdg-shell-client-protocol.c
+XDG_SHELL_PROTOCOL_HEADER_PATH := $(GEN_DIR)/xdg-shell-client-protocol.h
 
 $(shell mkdir -p $(GEN_DIR))
 $(info wayland-scanner xdg-shell-protocol.c)
-$(shell wayland-scanner private-code $(WAYLAND_SHELL_PROTOCOL) $(GEN_DIR)/xdg-shell-protocol.c)
+$(shell wayland-scanner private-code $(WAYLAND_SHELL_PROTOCOL) $(XDG_SHELL_PROTOCOL_PATH))
 $(info wayland-scanner xdg-shell-client-protocol.h)
-$(shell wayland-scanner client-header $(WAYLAND_SHELL_PROTOCOL) $(GEN_DIR)/xdg-shell-client-protocol.h)
+$(shell wayland-scanner client-header $(WAYLAND_SHELL_PROTOCOL) $(XDG_SHELL_PROTOCOL_HEADER_PATH))
 $(info )
 $(info >>> finished file generation)
 $(info )
 
 # Update variables as necessary
-SRCS += $(GEN_DIR)/xdg-shell-protocol.c
+SRCS += $(XDG_SHELL_PROTOCOL_PATH)
 INCLUDES += -I$(GEN_DIR)
 LIBS += -lwayland-client -lrt
 endif
@@ -110,7 +113,12 @@ $(TARGET): $(OBJS)
 	$(info >>> $@ <<<)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
 
-$(OBJ_DIR)/%.o: %
+$(OBJ_DIR)/%.c.o: %.c
+	mkdir -p $(dir $@)
+	$(info $<...)
+	$(CC) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
