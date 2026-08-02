@@ -22,4 +22,4 @@ ColumnLimit: 120
 IndentPPDirectives: AfterHash
 IndentWidth: 4
 PointerAlignment: Right
-SortIncludes: true
+SortIncludes: false

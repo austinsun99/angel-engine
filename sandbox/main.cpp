@@ -10,18 +10,18 @@ int main() {
         .application_name = "PASTEL Engine",
     };
     WindowState window_state = init_window();
-    init_input();
+    Input::init_input();
     open_window(config, &window_state);
 
     while (window_state.running) {
+        Input::input_update();
         if (!pump_window(&window_state)) {
             window_state.running = false;
         }
-        input_update();
 
         // @temp
-        print_pressed_keys();
+        Input::print_pressed_keys();
     }
-    deinit_input();
+    Input::deinit_input();
     deinit_window(&window_state);
 }

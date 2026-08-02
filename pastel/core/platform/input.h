@@ -3,20 +3,23 @@
 // @todo: place into namespace
 
 #include <cstdint>
+
 #include "defines.h"
-enum MouseButton {
-    LEFT,
-    RIGHT,
-    MIDDLE,
+
+namespace Input {
+PASTEL_API enum MouseButton {
+    MOUSE_LEFT,
+    MOUSE_RIGHT,
+    MOUSE_MIDDLE,
     MAX_BUTTONS,
 };
 
 // The keycodes listed here match the virtual key codes defined by Winuser.h
-enum Keycode {
+PASTEL_API enum Keycode {
     BACK = 0x08,
-    TAB = 0x09,
+    TAB  = 0x09,
 
-    CLEAR = 0x0C,
+    CLEAR  = 0x0C,
     RETURN = 0x0D,
 
     SHIFT = 0x10,
@@ -26,7 +29,7 @@ enum Keycode {
     CAPSLOCK,
 
     ESCAPE = 0x1B,
-    SPACE = 0x20,
+    SPACE  = 0x20,
     PAGEUP,
     PAGEDOWN,
     END,
@@ -169,3 +172,5 @@ void process_mouse_position(uint16_t x, uint16_t y);
 
 // @todo: for debugging purposes only. remove.
 PASTEL_API void print_pressed_keys();
+
+}  // namespace Input
