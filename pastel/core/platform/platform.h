@@ -1,10 +1,11 @@
 #pragma once
 
 #include "core/platform/input.h"
+#include "core/io/terminal_colours.h"
 #include "defines.h"
 
 namespace Pastel {
-struct WindowConfig {
+struct PASTEL_API WindowConfig {
     int x;
     int y;
     int width;
@@ -26,8 +27,10 @@ class PASTEL_API WindowState {
     bool open_window(const WindowConfig config);
     bool pump_window();
 
-    // @todo: turn colour into an enum
-    void print_terminal(const char *msg, int colour_fg, int colour_bg);
+    // @todo: use templates for compile time colour?
+    void print_terminal(const char *msg,
+                        Io::TerminalColour fg = Io::TERMINAL_COLOUR_WHITE,
+                        Io::TerminalColour bg = Io::TERMINAL_COLOUR_NONE);
 
    private:
     void *internal_state;

@@ -7,18 +7,20 @@
 #    include <windows.h>
 #    include <windowsx.h>
 
+#    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
 #    include "input.h"
 #    include "platform.h"
 
-using namespace Pastel;
-
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
+namespace Pastel {
 struct InternalState {
     const char *WINDOW_CLASS = "Pastel Main Window Class";
 
     HINSTANCE instance;
+    HANDLE console_stdout;
+    HANDLE console_stderr;
 };
 
 WindowState::WindowState() {
@@ -36,6 +38,16 @@ WindowState::~WindowState() {
 
 bool WindowState::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
+
+    internal->console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (internal->console_stdout == INVALID_HANDLE_VALUE) {
+        // @todo: error message
+    }
+    internal->console_stderr = GetStdHandle(STD_ERROR_HANDLE);
+    if (internal->console_stderr == INVALID_HANDLE_VALUE) {
+        // @todo: error message
+    }
+
     if (!GetModuleHandleEx(0, nullptr, &internal->instance)) return false;
 
     WNDCLASSEX wnd_class = WNDCLASSEX{
@@ -108,6 +120,44 @@ bool WindowState::pump_window() {
     return true;
 }
 
+constexpr int terminal_colour_to_id(Io::TerminalColour colour) {
+    switch (colour) {
+        case Io::TERMINAL_COLOUR_MAX:
+        case Io::TERMINAL_COLOUR_NONE:
+        case Io::TERMINAL_COLOUR_GRAY:
+            return 0;
+        case Io::TERMINAL_COLOUR_BLUE:
+            return 1;
+        case Io::TERMINAL_COLOUR_GREEN:
+            return 2;
+        case Io::TERMINAL_COLOUR_LIGHTBLUE:
+            return 3;
+        case Io::TERMINAL_COLOUR_RED:
+            return 4;
+        case Io::TERMINAL_COLOUR_PURPLE:
+            return 5;
+        case Io::TERMINAL_COLOUR_YELLOW:
+            return 6;
+        case Io::TERMINAL_COLOUR_LIGHTGRAY:  // note: set light gray the same as white
+        case Io::TERMINAL_COLOUR_WHITE:
+            return 7;
+    }
+
+    return 0;
+}
+
+void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
+    int colour_id        = terminal_colour_to_id(bg) * 16 + terminal_colour_to_id(fg);
+    InternalState *state = static_cast<InternalState *>(internal_state);
+
+    SetConsoleTextAttribute(state->console_stderr, colour_id);
+    DWORD num_written = 0;
+    WriteConsole(state->console_stderr, msg, strlen(msg), &num_written, nullptr);
+}
+
+}  // namespace Pastel
+
+using namespace Pastel;
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     WindowState *state;
     if (msg == WM_CREATE) {
