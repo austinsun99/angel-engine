@@ -1,29 +1,35 @@
 #pragma once
 
+#include "core/platform/input.h"
 #include "defines.h"
 
-// @todo: place into namespace
-
+namespace Pastel {
 struct WindowConfig {
     int x;
     int y;
     int width;
     int height;
-    const char* application_name;
-};
-
-struct WindowState {
-    bool running;
-    int width;
-    int height;
-    void *internal_state;
+    const char *application_name;
 };
 
 // @temp: remove PASTEL_API (here for testing purposes)
-PASTEL_API WindowState init_window();
-PASTEL_API bool open_window(const WindowConfig config, WindowState *const state);
-PASTEL_API bool pump_window(WindowState *const state);
-PASTEL_API void deinit_window(WindowState *const state);
+class PASTEL_API WindowState {
+   public:
+    bool running;
+    int width;
+    int height;
 
-// @todo: turn colour into an enum
-void print_terminal(const char* msg, int colour_fg, int colour_bg);
+    Input input;
+
+    WindowState();
+    ~WindowState();
+    bool open_window(const WindowConfig config);
+    bool pump_window();
+
+    // @todo: turn colour into an enum
+    void print_terminal(const char *msg, int colour_fg, int colour_bg);
+
+   private:
+    void *internal_state;
+};
+}  // namespace Pastel

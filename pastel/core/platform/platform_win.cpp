@@ -1,15 +1,17 @@
 #include "defines.h"
 #ifdef PLATFORM_WINDOWS
 
-#include <libloaderapi.h>
-#include <minwindef.h>
-#include <windef.h>
-#include <windows.h>
-#include <windowsx.h>
+#    include <libloaderapi.h>
+#    include <minwindef.h>
+#    include <windef.h>
+#    include <windows.h>
+#    include <windowsx.h>
 
-#include "core/platform/platform.h"
-#include "input.h"
-#include "platform_win.h"
+#    include "core/platform/platform.h"
+#    include "input.h"
+#    include "platform.h"
+
+using namespace Pastel;
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -19,15 +21,21 @@ struct InternalState {
     HINSTANCE instance;
 };
 
-WindowState init_window_win() {
+WindowState::WindowState() {
     InternalState *internal = new InternalState();
-    WindowState state       = {.running = true, .width = 0, .height = 0, .internal_state = internal};
-    return state;
+    input                   = Input();
+    running                 = true;
+    width                   = 0;
+    height                  = 0;
+    internal_state          = internal;
 }
 
-bool open_window_win(const WindowConfig config, WindowState *const state) {
-    InternalState *internal = static_cast<InternalState *>(state->internal_state);
+WindowState::~WindowState() {
+    delete static_cast<InternalState *>(internal_state);
+}
 
+bool WindowState::open_window(const WindowConfig config) {
+    InternalState *internal = static_cast<InternalState *>(internal_state);
     if (!GetModuleHandleEx(0, nullptr, &internal->instance)) return false;
 
     WNDCLASSEX wnd_class = WNDCLASSEX{
@@ -77,7 +85,7 @@ bool open_window_win(const WindowConfig config, WindowState *const state) {
                                nullptr,  // parent window
                                nullptr,  // menu
                                internal->instance,
-                               nullptr);
+                               this);
 
     if (hwnd == nullptr) {
         // @todo: obtain error with GetLastError
@@ -88,9 +96,7 @@ bool open_window_win(const WindowConfig config, WindowState *const state) {
     return true;
 }
 
-bool pump_window_win(WindowState *const state) {
-    (void)state;
-
+bool WindowState::pump_window() {
     // @todo: set running to false on window post quit message
     MSG msg;
     const UINT msg_filter_min = 0;
@@ -102,11 +108,18 @@ bool pump_window_win(WindowState *const state) {
     return true;
 }
 
-void deinit_window_win(WindowState *const state) {
-    delete static_cast<InternalState *>(state->internal_state);
-}
-
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    WindowState *state;
+    if (msg == WM_CREATE) {
+        CREATESTRUCT *create = reinterpret_cast<CREATESTRUCT *>(lparam);
+        state                = reinterpret_cast<WindowState *>(create->lpCreateParams);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state));
+        return TRUE;
+    }
+
+    LONG_PTR data = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    state         = reinterpret_cast<WindowState *>(data);
+
     switch (msg) {
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN:
@@ -115,7 +128,7 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             const bool pressed       = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             const Input::Keycode key = static_cast<Input::Keycode>(wparam);
 
-            process_key(key, pressed);
+            state->input.process_key(key, pressed);
         } break;
         case WM_LBUTTONDOWN:
         case WM_MBUTTONDOWN:
@@ -140,16 +153,16 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
                     break;
             }
 
-            process_mouse_button(mouse_button, pressed);
+            state->input.process_mouse_button(mouse_button, pressed);
         } break;
         case WM_MOUSEMOVE: {
             int x = GET_X_LPARAM(lparam);
             int y = GET_Y_LPARAM(lparam);
-            Input::process_mouse_position(x, y);
+            state->input.process_mouse_position(x, y);
             // @todo
         } break;
         case WM_MOUSEWHEEL: {
-            Input::process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));
+            state->input.process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));
         } break;
         case WM_ERASEBKGND:
             // A nonzero return value to indicate the program handles erasing the background.

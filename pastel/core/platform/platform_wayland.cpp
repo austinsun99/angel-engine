@@ -2,7 +2,7 @@
 #ifdef PLATFORM_LINUX
 
 #include "core/platform/platform.h"
-#include "platform_wayland.h"
+#include "platform.h"
 #include "xdg-shell-client-protocol.h"
 #include "input.h"
 
@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <cstring>
+
+using namespace Pastel;
 
 struct InternalState {
     struct wl_display *wl_display;
@@ -291,7 +293,7 @@ const static struct {
     };
 } wl_registry_listener;
 
-WindowState init_window_wayland() {
+WindowState::WindowState() {
     return WindowState{
         .running        = true,
         .width          = 0,
@@ -300,23 +302,41 @@ WindowState init_window_wayland() {
     };
 };
 
-bool open_window_wayland(const WindowConfig config, WindowState *const state) {
-    InternalState *internal = static_cast<InternalState *>(state->internal_state);
+WindowState::~WindowState() {
+    InternalState *internal = static_cast<InternalState *>(internal_state);
+    wl_shm_destroy(internal->wl_shm);
 
-    internal->wl_display = wl_display_connect(nullptr);
+    xdg_surface_destroy(internal->xdg_surface);
+    xdg_toplevel_destroy(internal->xdg_toplevel);
+
+    wl_surface_destroy(internal->wl_surface);
+    // Obtained from registry global callback
+    if (internal->wl_pointer != nullptr) wl_pointer_destroy(internal->wl_pointer);
+    xdg_wm_base_destroy(internal->xdg_wm_base);
+    wl_compositor_destroy(internal->wl_compositor);
+    wl_seat_destroy(internal->wl_seat);
+
+    wl_registry_destroy(internal->wl_registry);
+    wl_display_disconnect(internal->wl_display);
+    delete internal;
+}
+
+bool WindowState::open_window(const WindowConfig config) {
+    InternalState *internal = static_cast<InternalState *>(internal_state);
+    internal->wl_display    = wl_display_connect(nullptr);
     if (internal->wl_display == nullptr) {
         // @todo: log error message
         return false;
     }
     internal->wl_registry = wl_display_get_registry(internal->wl_display);
-    wl_registry_add_listener(internal->wl_registry, &wl_registry_listener.listener, state);
+    wl_registry_add_listener(internal->wl_registry, &wl_registry_listener.listener, this);
     wl_display_roundtrip(internal->wl_display);
     internal->wl_surface = wl_compositor_create_surface(internal->wl_compositor);
 
     internal->xdg_surface  = xdg_wm_base_get_xdg_surface(internal->xdg_wm_base, internal->wl_surface);
     internal->xdg_toplevel = xdg_surface_get_toplevel(internal->xdg_surface);
     xdg_toplevel_set_title(internal->xdg_toplevel, config.application_name);
-    xdg_toplevel_add_listener(internal->xdg_toplevel, &xdg_toplevel_listener.listener, state);
+    xdg_toplevel_add_listener(internal->xdg_toplevel, &xdg_toplevel_listener.listener, this);
 
     // @temp
     // the code below allocates a shared memory buffer. This is temporary to get something to show on the screen. Remove
@@ -338,8 +358,8 @@ bool open_window_wayland(const WindowConfig config, WindowState *const state) {
     return true;
 }
 
-bool pump_window_wayland(WindowState *const state) {
-    const InternalState *internal = static_cast<InternalState *>(state->internal_state);
+bool WindowState::pump_window() {
+    const InternalState *internal = static_cast<InternalState *>(internal_state);
 
     // @todo: make non blocking
     wl_display_dispatch(internal->wl_display);
@@ -349,26 +369,6 @@ bool pump_window_wayland(WindowState *const state) {
     // }
     // wl_display_flush(internal->wl_display);
     return true;
-}
-
-void deinit_window_wayland(WindowState *const state) {
-    InternalState *internal = static_cast<InternalState *>(state->internal_state);
-    wl_shm_destroy(internal->wl_shm);
-
-    xdg_surface_destroy(internal->xdg_surface);
-    xdg_toplevel_destroy(internal->xdg_toplevel);
-
-    wl_surface_destroy(internal->wl_surface);
-    // Obtained from registry global callback
-    if (internal->wl_pointer != nullptr) wl_pointer_destroy(internal->wl_pointer);
-    xdg_wm_base_destroy(internal->xdg_wm_base);
-    wl_compositor_destroy(internal->wl_compositor);
-    wl_seat_destroy(internal->wl_seat);
-
-    wl_registry_destroy(internal->wl_registry);
-    wl_display_disconnect(internal->wl_display);
-
-    delete internal;
 }
 
 #endif

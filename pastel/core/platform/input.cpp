@@ -4,6 +4,8 @@
 #include <cstring>
 #include <iostream>
 
+using namespace Pastel;
+
 struct InputState {
     bool keys[Input::Keycode::MAX_KEYS];
     bool mouse_button[Input::MouseButton::MAX_BUTTONS];

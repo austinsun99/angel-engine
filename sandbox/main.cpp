@@ -1,6 +1,8 @@
 #include <core/platform/input.h>
 #include <core/platform/platform.h>
 
+using namespace Pastel;
+
 int main() {
     WindowConfig config = {
         .x                = 0,
@@ -9,19 +11,17 @@ int main() {
         .height           = 1080,
         .application_name = "PASTEL Engine",
     };
-    WindowState window_state = init_window();
-    Input::init_input();
-    open_window(config, &window_state);
+
+    WindowState window_state = WindowState();
+    window_state.open_window(config);
 
     while (window_state.running) {
-        Input::input_update();
-        if (!pump_window(&window_state)) {
+        window_state.input.input_update();
+        if (!window_state.pump_window()) {
             window_state.running = false;
         }
 
         // @temp
-        Input::print_pressed_keys();
+        window_state.input.print_pressed_keys();
     }
-    Input::deinit_input();
-    deinit_window(&window_state);
 }
