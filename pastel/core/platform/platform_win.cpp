@@ -1,15 +1,15 @@
 #include "defines.h"
-#if defined(PLATFORM_WINDOWS)
+#ifdef PLATFORM_WINDOWS
 
-#    include <libloaderapi.h>
-#    include <minwindef.h>
-#    include <windef.h>
-#    include <windows.h>
-#    include <windowsx.h>
+#include <libloaderapi.h>
+#include <minwindef.h>
+#include <windef.h>
+#include <windows.h>
+#include <windowsx.h>
 
-#    include "core/platform/platform.h"
-#    include "input.h"
-#    include "platform_win.h"
+#include "core/platform/platform.h"
+#include "input.h"
+#include "platform_win.h"
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -89,6 +89,9 @@ bool open_window_win(const WindowConfig config, WindowState *const state) {
 }
 
 bool pump_window_win(WindowState *const state) {
+    (void)state;
+
+    // @todo: set running to false on window post quit message
     MSG msg;
     const UINT msg_filter_min = 0;
     const UINT msg_filter_max = 0;
@@ -109,8 +112,8 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         case WM_SYSKEYDOWN:
         case WM_KEYUP:
         case WM_SYSKEYUP: {
-            const bool pressed = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
-            const Keycode key  = static_cast<Keycode>(wparam);
+            const bool pressed       = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+            const Input::Keycode key = static_cast<Input::Keycode>(wparam);
 
             process_key(key, pressed);
         } break;
@@ -120,20 +123,20 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         case WM_LBUTTONUP:
         case WM_MBUTTONUP:
         case WM_RBUTTONUP: {
-            const bool pressed       = msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN;
-            MouseButton mouse_button = MouseButton::MAX_BUTTONS;
+            const bool pressed              = msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN;
+            Input::MouseButton mouse_button = Input::MouseButton::MAX_BUTTONS;
             switch (msg) {
                 case WM_LBUTTONDOWN:
                 case WM_LBUTTONUP:
-                    mouse_button = MouseButton::LEFT;
+                    mouse_button = Input::MouseButton::MOUSE_LEFT;
                     break;
                 case WM_MBUTTONDOWN:
                 case WM_MBUTTONUP:
-                    mouse_button = MouseButton::MIDDLE;
+                    mouse_button = Input::MouseButton::MOUSE_MIDDLE;
                     break;
                 case WM_RBUTTONDOWN:
                 case WM_RBUTTONUP:
-                    mouse_button = MouseButton::RIGHT;
+                    mouse_button = Input::MouseButton::MOUSE_RIGHT;
                     break;
             }
 
@@ -142,8 +145,11 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         case WM_MOUSEMOVE: {
             int x = GET_X_LPARAM(lparam);
             int y = GET_Y_LPARAM(lparam);
-            process_mouse_position(x, y);
+            Input::process_mouse_position(x, y);
             // @todo
+        } break;
+        case WM_MOUSEWHEEL: {
+            Input::process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));
         } break;
         case WM_ERASEBKGND:
             // A nonzero return value to indicate the program handles erasing the background.
@@ -163,4 +169,5 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
+
 #endif

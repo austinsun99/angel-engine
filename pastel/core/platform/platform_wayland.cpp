@@ -1,26 +1,26 @@
-#include <sys/mman.h>
+#include "defines.h"
+#ifdef PLATFORM_LINUX
+
+#include "core/platform/platform.h"
+#include "platform_wayland.h"
+#include "xdg-shell-client-protocol.h"
+#include "input.h"
+
 #include <wayland-util.h>
 
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <sys/mman.h>
 
-#include "defines.h"
-#ifdef PLATFORM_LINUX
-#    include "input.h"
+#include <linux/input-event-codes.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
 
-#    include <linux/input-event-codes.h>
-#    include <sys/syscall.h>
-#    include <unistd.h>
-#    include <wayland-client-core.h>
-#    include <wayland-client-protocol.h>
-
-#    include <algorithm>
-#    include <cstring>
-
-#    include "core/platform/platform.h"
-#    include "platform_wayland.h"
-#    include "xdg-shell-client-protocol.h"
+#include <algorithm>
+#include <cstring>
 
 struct InternalState {
     struct wl_display *wl_display;

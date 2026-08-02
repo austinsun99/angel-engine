@@ -104,7 +104,7 @@ LDLIBS := $(LIBS)
 # --- RECIPES ---
 #
 .PHONY: all clean
-.SILENT:
+# .SILENT:
 
 all: $(TARGET)
 

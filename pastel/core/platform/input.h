@@ -7,7 +7,7 @@
 #include "defines.h"
 
 namespace Input {
-PASTEL_API enum MouseButton {
+enum MouseButton {
     MOUSE_LEFT,
     MOUSE_RIGHT,
     MOUSE_MIDDLE,
@@ -15,7 +15,7 @@ PASTEL_API enum MouseButton {
 };
 
 // The keycodes listed here match the virtual key codes defined by Winuser.h
-PASTEL_API enum Keycode {
+enum Keycode {
     BACK = 0x08,
     TAB  = 0x09,
 
@@ -169,6 +169,7 @@ PASTEL_API void input_update();
 void process_key(Keycode key, bool pressed);
 void process_mouse_button(MouseButton button, bool pressed);
 void process_mouse_position(uint16_t x, uint16_t y);
+void process_mouse_wheel(int delta);
 
 // @todo: for debugging purposes only. remove.
 PASTEL_API void print_pressed_keys();

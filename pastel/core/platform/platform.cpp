@@ -1,8 +1,14 @@
 #include "platform.h"
 
 #include "defines.h"
-#include "platform_wayland.h"
-#include "platform_win.h"
+
+#ifdef PLATFORM_LINUX
+#    include "platform_wayland.h"
+#endif
+
+#ifdef PLATFORM_WINDOWS
+#    include "platform_win.h"
+#endif
 
 // @todo: x11, macos
 WindowState init_window() {
