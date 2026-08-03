@@ -2,10 +2,9 @@
 
 #include "core/platform/input.h"
 #include "core/io/terminal_colours.h"
-#include "defines.h"
 
 namespace Pastel {
-struct PASTEL_API WindowConfig {
+struct WindowConfig {
     int x;
     int y;
     int width;
@@ -15,7 +14,7 @@ struct PASTEL_API WindowConfig {
 
 // @temp: remove PASTEL_API (here for testing purposes)
 // @todo: change name since this does not only handle window state but all platform related items
-class PASTEL_API WindowState {
+class WindowState {
    public:
     bool running;
     int width;

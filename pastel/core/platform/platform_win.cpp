@@ -1,3 +1,5 @@
+#include <profileapi.h>
+#include <winnt.h>
 #include "defines.h"
 #ifdef PLATFORM_WINDOWS
 
@@ -17,10 +19,12 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
 namespace Pastel {
 struct InternalState {
     const char *WINDOW_CLASS = "Pastel Main Window Class";
+    CONSOLE_SCREEN_BUFFER_INFO initial_console_screen_buf_info;
 
     HINSTANCE instance;
     HANDLE console_stdout;
-    HANDLE console_stderr;
+
+    double clock_frequency_inverse;
 };
 
 WindowState::WindowState() {
@@ -36,6 +40,11 @@ WindowState::~WindowState() {
     delete static_cast<InternalState *>(internal_state);
 }
 
+void WindowState::update() {
+    prev_time    = current_time;
+    current_time = get_time();
+}
+
 bool WindowState::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
 
@@ -43,10 +52,12 @@ bool WindowState::open_window(const WindowConfig config) {
     if (internal->console_stdout == INVALID_HANDLE_VALUE) {
         // @todo: error message
     }
-    internal->console_stderr = GetStdHandle(STD_ERROR_HANDLE);
-    if (internal->console_stderr == INVALID_HANDLE_VALUE) {
-        // @todo: error message
-    }
+
+    GetConsoleScreenBufferInfo(internal->console_stdout, &internal->initial_console_screen_buf_info);
+
+    LARGE_INTEGER clock_frequency;
+    QueryPerformanceFrequency(&clock_frequency);
+    internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
 
     if (!GetModuleHandleEx(0, nullptr, &internal->instance)) return false;
 
@@ -122,6 +133,7 @@ bool WindowState::pump_window() {
 
 constexpr int terminal_colour_to_id(Io::TerminalColour colour) {
     switch (colour) {
+        case Io::TERMINAL_COLOUR_BLACK:
         case Io::TERMINAL_COLOUR_MAX:
         case Io::TERMINAL_COLOUR_NONE:
         case Io::TERMINAL_COLOUR_GRAY:
@@ -146,13 +158,33 @@ constexpr int terminal_colour_to_id(Io::TerminalColour colour) {
     return 0;
 }
 
+void WindowState::print_terminal_raw(const char *msg) {
+    InternalState *state = static_cast<InternalState *>(internal_state);
+    DWORD num_written    = 0;
+    WriteConsole(state->console_stdout, msg, strlen(msg), &num_written, nullptr);
+}
+
 void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
     int colour_id        = terminal_colour_to_id(bg) * 16 + terminal_colour_to_id(fg);
     InternalState *state = static_cast<InternalState *>(internal_state);
+    SetConsoleTextAttribute(state->console_stdout, colour_id);
+    print_terminal_raw(msg);
+}
 
-    SetConsoleTextAttribute(state->console_stderr, colour_id);
-    DWORD num_written = 0;
-    WriteConsole(state->console_stderr, msg, strlen(msg), &num_written, nullptr);
+void WindowState::clear_terminal_colour() {
+    InternalState *state = static_cast<InternalState *>(internal_state);
+    SetConsoleTextAttribute(state->console_stdout, state->initial_console_screen_buf_info.wAttributes);
+}
+
+double WindowState::get_time() {
+    InternalState *internal = static_cast<InternalState *>(internal_state);
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    return static_cast<double>(counter.QuadPart) * internal->clock_frequency_inverse;
+}
+
+double WindowState::get_delta_time() {
+    return current_time - prev_time;
 }
 
 }  // namespace Pastel
