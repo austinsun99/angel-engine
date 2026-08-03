@@ -87,7 +87,7 @@ $(info )
 # Update variables as necessary
 SRCS += $(XDG_SHELL_PROTOCOL_PATH)
 INCLUDES += -I$(GEN_DIR)
-LIBS += -lwayland-client -lrt
+LIBS += -lwayland-client -lrt -lxkbcommon
 endif
 
 OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)

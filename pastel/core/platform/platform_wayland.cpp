@@ -1,24 +1,26 @@
-#include <sys/poll.h>
 #include "defines.h"
 #ifdef PLATFORM_LINUX
 
+#    include "xdg-shell-client-protocol.h"
 #    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
 #    include "platform.h"
-#    include "xdg-shell-client-protocol.h"
 #    include "input.h"
 
 #    include <wayland-util.h>
 
+#    include <sys/syscall.h>
+#    include <sys/mman.h>
 #    include <cstdint>
 #    include <cstdio>
-#    include <iostream>
-#    include <sys/mman.h>
 #    include <poll.h>
+#    include <cerrno>
+#    include <ctime>
+#    include <unistd.h>
 
 #    include <linux/input-event-codes.h>
-#    include <sys/syscall.h>
-#    include <unistd.h>
+#    include <xkbcommon/xkbcommon.h>
+#    include <xkbcommon/xkbcommon-keysyms.h>
 #    include <wayland-client-core.h>
 #    include <wayland-client-protocol.h>
 
@@ -42,6 +44,10 @@ struct InternalState {
     struct wl_surface *wl_surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+
+    struct xkb_state *xkb_state;
+    struct xkb_context *xkb_context;
+    struct xkb_keymap *xkb_keymap;
 };
 
 const static struct {
@@ -222,20 +228,299 @@ const static struct {
 } wl_pointer_listener;
 
 const static struct {
+    static void keymap(void *data, struct wl_keyboard *wl_keyboard, uint32_t format, int32_t fd, uint32_t size) {
+        (void)wl_keyboard;
+        (void)format;
+
+        WindowState *state      = static_cast<WindowState *>(data);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
+        // @todo: assert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
+
+        char *map_shm = static_cast<char *>(mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0));
+
+        // @todo: assert(map_shm != MAP_FAILED)
+        // @todo: assert(internal->xkb_context)
+        xkb_keymap *keymap = xkb_keymap_new_from_string(internal->xkb_context,
+                                                        map_shm,
+                                                        XKB_KEYMAP_FORMAT_TEXT_V1,
+                                                        XKB_KEYMAP_COMPILE_NO_FLAGS);
+        munmap(map_shm, size);
+        close(fd);
+
+        xkb_state *xkb_state = xkb_state_new(keymap);
+        xkb_keymap_unref(internal->xkb_keymap);
+        xkb_state_unref(internal->xkb_state);
+        internal->xkb_keymap = keymap;
+        internal->xkb_state  = xkb_state;
+    }
+
+    static void enter(void *data,
+                      struct wl_keyboard *wl_keyboard,
+                      uint32_t serial,
+                      struct wl_surface *surface,
+                      struct wl_array *keys) {
+        (void)data;
+        (void)wl_keyboard;
+        (void)serial;
+        (void)surface;
+        (void)keys;
+    }
+
+    static void leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
+        (void)data;
+        (void)wl_keyboard;
+        (void)serial;
+        (void)surface;
+    }
+    static Input::Keycode xkb_to_input(xkb_keysym_t xkb_sym) {
+        switch (xkb_sym) {
+            case XKB_KEY_BackSpace:
+                return Input::BACK;
+            case XKB_KEY_Tab:
+                return Input::TAB;
+            case XKB_KEY_Clear:
+                return Input::CLEAR;
+            case XKB_KEY_Return:
+                return Input::RETURN;
+
+            case XKB_KEY_Control_L:
+                return Input::LCTRL;
+            case XKB_KEY_Control_R:
+                return Input::RCTRL;
+
+            case XKB_KEY_Alt_L:
+                return Input::LALT;
+            case XKB_KEY_Alt_R:
+                return Input::RALT;
+
+            case XKB_KEY_Shift_L:
+                return Input::LSHIFT;
+            case XKB_KEY_Shift_R:
+                return Input::RSHIFT;
+
+            case XKB_KEY_Pause:
+                return Input::PAUSE;
+            case XKB_KEY_Caps_Lock:
+                return Input::CAPSLOCK;
+
+            case XKB_KEY_Escape:
+                return Input::ESCAPE;
+            case XKB_KEY_space:
+                return Input::SPACE;
+            case XKB_KEY_Page_Up:
+                return Input::PAGEUP;
+            case XKB_KEY_Page_Down:
+                return Input::PAGEDOWN;
+            case XKB_KEY_End:
+                return Input::END;
+            case XKB_KEY_Home:
+                return Input::HOME;
+            case XKB_KEY_leftarrow:
+                return Input::LEFTARROW;
+            case XKB_KEY_uparrow:
+                return Input::UPARROW;
+            case XKB_KEY_rightarrow:
+                return Input::RIGHTARROW;
+            case XKB_KEY_downarrow:
+                return Input::DOWNARROW;
+            case XKB_KEY_Select:
+                return Input::SELECT;
+            case XKB_KEY_Print:
+                return Input::PRINT;
+            case XKB_KEY_Execute:
+                return Input::EXECUTE;
+            case XKB_KEY_Insert:
+                return Input::INSERT;
+            case XKB_KEY_Delete:
+                return Input::DEL;
+            case XKB_KEY_Help:
+                return Input::HELP;
+            case XKB_KEY_0:
+            case XKB_KEY_1:
+            case XKB_KEY_2:
+            case XKB_KEY_3:
+            case XKB_KEY_4:
+            case XKB_KEY_5:
+            case XKB_KEY_6:
+            case XKB_KEY_7:
+            case XKB_KEY_8:
+            case XKB_KEY_9:
+            case XKB_KEY_a:
+            case XKB_KEY_b:
+            case XKB_KEY_c:
+            case XKB_KEY_d:
+            case XKB_KEY_e:
+            case XKB_KEY_f:
+            case XKB_KEY_g:
+            case XKB_KEY_h:
+            case XKB_KEY_i:
+            case XKB_KEY_j:
+            case XKB_KEY_k:
+            case XKB_KEY_l:
+            case XKB_KEY_m:
+            case XKB_KEY_n:
+            case XKB_KEY_o:
+            case XKB_KEY_p:
+            case XKB_KEY_q:
+            case XKB_KEY_r:
+            case XKB_KEY_s:
+            case XKB_KEY_t:
+            case XKB_KEY_u:
+            case XKB_KEY_v:
+            case XKB_KEY_w:
+            case XKB_KEY_x:
+            case XKB_KEY_y:
+            case XKB_KEY_z:
+                return static_cast<Input::Keycode>(Input::A + xkb_sym - XKB_KEY_a);
+
+            case XKB_KEY_Super_L:
+                return Input::LSUP;
+            case XKB_KEY_Super_R:
+                return Input::RSUP;
+            // @todo: numpad?
+            case XKB_KEY_multiply:  // This, and the below are not numpad, but in practice, makes sense to return
+                                    // equivalent for numpad
+                return Input::MULTIPLY;
+            case XKB_KEY_decimalpoint:
+                return Input::DEC;
+            case XKB_KEY_F1:
+            case XKB_KEY_F2:
+            case XKB_KEY_F3:
+            case XKB_KEY_F4:
+            case XKB_KEY_F5:
+            case XKB_KEY_F6:
+            case XKB_KEY_F7:
+            case XKB_KEY_F8:
+            case XKB_KEY_F9:
+            case XKB_KEY_F10:
+            case XKB_KEY_F11:
+            case XKB_KEY_F12:
+            case XKB_KEY_F13:
+            case XKB_KEY_F14:
+            case XKB_KEY_F15:
+            case XKB_KEY_F16:
+            case XKB_KEY_F17:
+            case XKB_KEY_F18:
+            case XKB_KEY_F19:
+            case XKB_KEY_F20:
+            case XKB_KEY_F21:
+            case XKB_KEY_F22:
+            case XKB_KEY_F23:
+            case XKB_KEY_F24:
+                return static_cast<Input::Keycode>(Input::F1 + (xkb_sym - XKB_KEY_F1));  // @todo: check
+            case XKB_KEY_Num_Lock:
+                return Input::NUMLOCK;
+            case XKB_KEY_Scroll_Lock:
+                return Input::SCROLL;  // @todo: check
+            case XKB_KEY_XF86AudioRaiseVolume:
+                return Input::VOLUME_UP;
+            case XKB_KEY_XF86AudioLowerVolume:
+                return Input::VOLUME_DOWN;
+            case XKB_KEY_XF86AudioMute:
+                return Input::VOLUME_MUTE;
+
+            case XKB_KEY_semicolon:
+                return Input::SEMICOLON;
+            case XKB_KEY_plus:
+                return Input::PLUS;
+            case XKB_KEY_comma:
+                return Input::COMMA;
+            case XKB_KEY_minus:
+                return Input::MINUS;
+            case XKB_KEY_period:
+                return Input::PERIOD;
+            case XKB_KEY_braceleft:
+                return Input::LBRACE;
+            case XKB_KEY_backslash:
+                return Input::BACKSLASH;
+            case XKB_KEY_braceright:
+                return Input::RBRACE;
+            case XKB_KEY_apostrophe:
+                return Input::APOSTROPHE;
+        }
+        return Input::MAX_KEYS;
+    }
+
+    static void key(void *data,
+                    struct wl_keyboard *wl_keyboard,
+                    uint32_t serial,
+                    uint32_t time,
+                    uint32_t key,
+                    uint32_t state) {
+        (void)wl_keyboard;
+        (void)serial;
+        (void)time;
+
+        WindowState *window_state = static_cast<WindowState *>(data);
+        InternalState *internal   = static_cast<InternalState *>(window_state->get_internal_state());
+
+        const xkb_keycode_t keycode = key + 8;
+        xkb_keysym_t sym            = xkb_state_key_get_one_sym(internal->xkb_state, keycode);
+        // @todo: assert(sym != XKB_KEY_NoSymbol)
+
+        const Input::Keycode input_keycode = xkb_to_input(sym);
+        if (input_keycode == Input::MAX_KEYS) return;
+
+        const bool pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+        window_state->input.process_key(input_keycode, pressed);
+    }
+
+    static void modifiers(void *data,
+                          struct wl_keyboard *wl_keyboard,
+                          uint32_t serial,
+                          uint32_t mods_depressed,
+                          uint32_t mods_latched,
+                          uint32_t mods_locked,
+                          uint32_t group) {
+        (void)data;
+        (void)wl_keyboard;
+        (void)serial;
+        (void)mods_depressed;
+        (void)mods_latched;
+        (void)mods_locked;
+        (void)group;
+    }
+
+    static void repeat_info(void *data, struct wl_keyboard *wl_keyboard, int32_t rate, int32_t delay) {
+        (void)data;
+        (void)wl_keyboard;
+        (void)rate;
+        (void)delay;
+    }
+
+    wl_keyboard_listener listener = wl_keyboard_listener{
+        .keymap      = keymap,
+        .enter       = enter,
+        .leave       = leave,
+        .key         = key,
+        .modifiers   = modifiers,
+        .repeat_info = repeat_info,
+    };
+} wl_keyboard_listener;
+
+const static struct {
     static void capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         (void)wl_seat;
         WindowState *state      = static_cast<WindowState *>(data);
         InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
-        bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+        bool has_pointer  = capabilities & WL_SEAT_CAPABILITY_POINTER;
+        bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
 
         if (has_pointer && internal->wl_pointer == nullptr) {
             internal->wl_pointer = wl_seat_get_pointer(internal->wl_seat);
             wl_pointer_add_listener(internal->wl_pointer, &wl_pointer_listener.listener, state);
-            std::cout << "pointer" << std::endl;
         } else if (!has_pointer && internal->wl_pointer != nullptr) {
             wl_pointer_release(internal->wl_pointer);
             internal->wl_pointer = nullptr;
+        }
+
+        if (has_keyboard && internal->wl_keyboard == nullptr) {
+            internal->wl_keyboard = wl_seat_get_keyboard(internal->wl_seat);
+            wl_keyboard_add_listener(internal->wl_keyboard, &wl_keyboard_listener.listener, state);
+        } else if (!has_keyboard && internal->wl_keyboard != nullptr) {
+            wl_keyboard_release(internal->wl_keyboard);
+            internal->wl_keyboard = nullptr;
         }
     }
     static void name(void *data, struct wl_seat *wl_seat, const char *name) {
@@ -315,6 +600,7 @@ WindowState::~WindowState() {
     wl_surface_destroy(internal->wl_surface);
     // Obtained from registry global callback
     if (internal->wl_pointer != nullptr) wl_pointer_destroy(internal->wl_pointer);
+    if (internal->wl_keyboard != nullptr) wl_keyboard_destroy(internal->wl_keyboard);
     xdg_wm_base_destroy(internal->xdg_wm_base);
     wl_compositor_destroy(internal->wl_compositor);
     wl_seat_destroy(internal->wl_seat);
@@ -333,7 +619,14 @@ void WindowState::update() {
 
 bool WindowState::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
-    internal->wl_display    = wl_display_connect(nullptr);
+
+    internal->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    if (internal->xkb_context == nullptr) {
+        // @todo: log error message
+        return false;
+    }
+
+    internal->wl_display = wl_display_connect(nullptr);
     if (internal->wl_display == nullptr) {
         // @todo: log error message
         return false;
@@ -349,8 +642,8 @@ bool WindowState::open_window(const WindowConfig config) {
     xdg_toplevel_add_listener(internal->xdg_toplevel, &xdg_toplevel_listener.listener, this);
 
     // @temp
-    // the code below allocates a shared memory buffer. This is temporary to get something to show on the screen. Remove
-    // after vulkan renderer.
+    // the code below allocates a shared memory buffer. This is temporary to get something to show on the screen.
+    // Remove after vulkan renderer.
     const int stride = config.width * 4;
     const int size   = stride * config.height;
 

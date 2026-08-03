@@ -57,20 +57,19 @@ void Input::process_mouse_wheel(int delta) {
 // @todo: for debugging purposes only. remove.
 void Input::print_pressed_keys() {
     for (int i = 0; i < Keycode::MAX_KEYS; i++) {
-        if (current_state.keys[i]) {
+        if (current_state.keys[i] != previous_state.keys[i]) {
             std::cout << "keycode pressed: " << i << std::endl;
         }
     }
 
     for (int i = 0; i < MouseButton::MAX_BUTTONS; i++) {
-        if (current_state.mouse_button[i]) {
+        if (current_state.mouse_button[i] != previous_state.keys[i]) {
             std::cout << "button pressed: " << i << std::endl;
         }
     }
 
-    // if (current_state.mouse_x != previous_state.mouse_x) std::cout << "mouse x: " << current_state.mouse_x <<
-    // std::endl; if (current_state.mouse_y != previous_state.mouse_y) std::cout << "mouse y: " << current_state.mouse_y
-    // << std::endl;
+    if (current_state.mouse_x != previous_state.mouse_x) std::cout << "mouse x: " << current_state.mouse_x << std::endl;
+    if (current_state.mouse_y != previous_state.mouse_y) std::cout << "mouse y: " << current_state.mouse_y << std::endl;
     if (current_state.mouse_wheel_delta != 0)
         std::cout << "mouse wheel delta: " << current_state.mouse_wheel_delta << std::endl;
 }
