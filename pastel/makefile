@@ -96,7 +96,7 @@ DEPS := $(OBJS:.o=.d)
 #
 # --- FLAGS ---
 #
-CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT) -std=c++20 -fPIC
+CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT) -fPIC
 LDFLAGS := $(LIBFLAGS) $(LIBDIRS)
 LDLIBS := $(LIBS)
 
@@ -104,7 +104,7 @@ LDLIBS := $(LIBS)
 # --- RECIPES ---
 #
 .PHONY: all clean
-# .SILENT:
+.SILENT:
 
 all: $(TARGET)
 

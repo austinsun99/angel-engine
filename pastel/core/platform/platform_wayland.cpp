@@ -1,26 +1,29 @@
+#include <sys/poll.h>
 #include "defines.h"
 #ifdef PLATFORM_LINUX
 
-#include "core/platform/platform.h"
-#include "platform.h"
-#include "xdg-shell-client-protocol.h"
-#include "input.h"
+#    include "core/io/terminal_colours.h"
+#    include "core/platform/platform.h"
+#    include "platform.h"
+#    include "xdg-shell-client-protocol.h"
+#    include "input.h"
 
-#include <wayland-util.h>
+#    include <wayland-util.h>
 
-#include <cstdint>
-#include <cstdio>
-#include <iostream>
-#include <sys/mman.h>
+#    include <cstdint>
+#    include <cstdio>
+#    include <iostream>
+#    include <sys/mman.h>
+#    include <poll.h>
 
-#include <linux/input-event-codes.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#include <wayland-client-core.h>
-#include <wayland-client-protocol.h>
+#    include <linux/input-event-codes.h>
+#    include <sys/syscall.h>
+#    include <unistd.h>
+#    include <wayland-client-core.h>
+#    include <wayland-client-protocol.h>
 
-#include <algorithm>
-#include <cstring>
+#    include <algorithm>
+#    include <cstring>
 
 using namespace Pastel;
 
@@ -95,14 +98,14 @@ const static struct {
                       struct wl_surface *surface,
                       wl_fixed_t surface_x,
                       wl_fixed_t surface_y) {
-        (void)data;
         (void)wl_pointer;
         (void)serial;
         (void)surface;
 
-        const uint16_t mouse_x = wl_fixed_to_int(surface_x);
-        const uint16_t mouse_y = wl_fixed_to_int(surface_y);
-        Input::process_mouse_position(mouse_x, mouse_y);
+        WindowState *window_state = static_cast<WindowState *>(data);
+        const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
+        const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
+        window_state->input.process_mouse_position(mouse_x, mouse_y);
     }
 
     static void leave(void *data, struct wl_pointer *wl_pointer, uint32_t serial, struct wl_surface *surface) {
@@ -116,15 +119,15 @@ const static struct {
                        uint32_t time,
                        wl_fixed_t surface_x,
                        wl_fixed_t surface_y) {
-        (void)data;
         (void)wl_pointer;
         (void)time;
-        const uint16_t mouse_x = wl_fixed_to_int(surface_x);
-        const uint16_t mouse_y = wl_fixed_to_int(surface_y);
+        WindowState *window_state = static_cast<WindowState *>(data);
+        const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
+        const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
 
         // @fix: mouse position goes to ~65565 when nearing edge of window,
         // supposedly because of wraparound.
-        Input::process_mouse_position(mouse_x, mouse_y);
+        window_state->input.process_mouse_position(mouse_x, mouse_y);
     }
 
     static void button(void *data,
@@ -133,10 +136,10 @@ const static struct {
                        uint32_t time,
                        uint32_t button,
                        uint32_t state) {
-        (void)data;
         (void)wl_pointer;
         (void)serial;
         (void)time;
+        WindowState *window_state       = static_cast<WindowState *>(data);
         bool pressed                    = state == WL_POINTER_BUTTON_STATE_PRESSED;
         Input::MouseButton mouse_button = Input::MAX_BUTTONS;
         switch (button) {
@@ -151,7 +154,7 @@ const static struct {
                 break;
         }
 
-        Input::process_mouse_button(mouse_button, pressed);
+        window_state->input.process_mouse_button(mouse_button, pressed);
     }
 
     static void axis(void *data, struct wl_pointer *wl_pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
@@ -222,7 +225,7 @@ const static struct {
     static void capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         (void)wl_seat;
         WindowState *state      = static_cast<WindowState *>(data);
-        InternalState *internal = static_cast<InternalState *>(state->internal_state);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         bool has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
 
@@ -254,7 +257,7 @@ const static struct {
                        uint32_t version) {
         (void)wl_registry;
         WindowState *state      = static_cast<WindowState *>(data);
-        InternalState *internal = static_cast<InternalState *>(state->internal_state);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         if (strcmp(interface, wl_compositor_interface.name) == 0) {
             const uint32_t min_ver  = std::min<uint32_t>(7, version);
@@ -293,13 +296,13 @@ const static struct {
     };
 } wl_registry_listener;
 
+namespace Pastel {
+
 WindowState::WindowState() {
-    return WindowState{
-        .running        = true,
-        .width          = 0,
-        .height         = 0,
-        .internal_state = new InternalState(),
-    };
+    running        = true;
+    width          = 0;
+    height         = 0;
+    internal_state = new InternalState();
 };
 
 WindowState::~WindowState() {
@@ -319,6 +322,13 @@ WindowState::~WindowState() {
     wl_registry_destroy(internal->wl_registry);
     wl_display_disconnect(internal->wl_display);
     delete internal;
+}
+
+void WindowState::update() {
+    prev_time    = current_time;
+    current_time = get_time();
+
+    input.input_update();
 }
 
 bool WindowState::open_window(const WindowConfig config) {
@@ -360,15 +370,101 @@ bool WindowState::open_window(const WindowConfig config) {
 
 bool WindowState::pump_window() {
     const InternalState *internal = static_cast<InternalState *>(internal_state);
+    wl_display *const &display    = internal->wl_display;
 
-    // @todo: make non blocking
-    wl_display_dispatch(internal->wl_display);
-    // @fix: close event not detected
-    // while (wl_display_prepare_read(internal->wl_display) != 0) {
-    //     wl_display_dispatch_pending(internal->wl_display);
-    // }
-    // wl_display_flush(internal->wl_display);
+    // We communicate our intent to read events. -1 is returned and EAGAIN is set if the event queue is nonempty.
+    while (wl_display_prepare_read(display) == -1) {
+        wl_display_dispatch_pending(display);
+    }
+
+    while (wl_display_flush(display) == -1) {
+        if (errno != EAGAIN) {
+            wl_display_cancel_read(display);
+            return true;
+        }
+    }
+
+    pollfd pfd = pollfd{
+        .fd      = wl_display_get_fd(display),
+        .events  = POLLIN,
+        .revents = 0,
+    };
+
+    if (poll(&pfd, 1, 0) > 0 && (pfd.revents & POLLIN) != 0) {
+        wl_display_read_events(display);
+        wl_display_dispatch_pending(display);
+    } else {
+        wl_display_cancel_read(display);
+    }
+
     return true;
 }
+
+constexpr int terminal_colour_to_code(Io::TerminalColour colour) {
+    switch (colour) {
+        case Io::TERMINAL_COLOUR_NONE:
+        case Io::TERMINAL_COLOUR_MAX:
+            return 0;  // black
+        case Io::TERMINAL_COLOUR_RED:
+            return 1;
+        case Io::TERMINAL_COLOUR_GREEN:
+            return 2;
+        case Io::TERMINAL_COLOUR_YELLOW:
+            return 3;
+        case Io::TERMINAL_COLOUR_BLUE:
+            return 4;
+        case Io::TERMINAL_COLOUR_PURPLE:
+            return 5;
+        case Io::TERMINAL_COLOUR_LIGHTBLUE:
+            return 6;
+        case Io::TERMINAL_COLOUR_GRAY:
+        case Io::TERMINAL_COLOUR_LIGHTGRAY:
+        case Io::TERMINAL_COLOUR_WHITE:
+            return 7;
+    }
+    return 0;
+}
+
+void WindowState::print_terminal_raw(const char *msg) {
+    int len = strlen(msg);
+    ssize_t res;
+    while (len > 0 && (res = write(STDOUT_FILENO, msg, len) != len)) {
+        if (res < 0 && errno == EINTR) continue;
+        if (res < 0) break;  // @todo: error
+
+        len -= res;
+        msg += res;
+    }
+}
+
+void WindowState::clear_terminal_colour() {
+    print_terminal_raw("\e[0m");
+}
+
+void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
+    const int fg_code = 30 + terminal_colour_to_code(fg);
+    const int bg_code = 40 + terminal_colour_to_code(bg);
+
+    char col_msg[64] = {};
+    snprintf(col_msg, sizeof(col_msg), "\e[0;%d;%dm", fg_code, bg_code);
+    print_terminal_raw(col_msg);
+    print_terminal_raw(msg);
+    clear_terminal_colour();
+}
+
+double WindowState::get_time() {
+    timespec time_out;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &time_out);
+    return time_out.tv_sec + time_out.tv_nsec * 0.000000001;
+}
+
+double WindowState::get_delta_time() {
+    return current_time - prev_time;
+}
+
+void *WindowState::get_internal_state() {
+    return internal_state;
+}
+}  // namespace Pastel
 
 #endif
