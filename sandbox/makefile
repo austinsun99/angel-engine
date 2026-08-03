@@ -1,3 +1,4 @@
+CC := gcc
 CXX := g++
 
 INCLUDES := -I../pastel
@@ -8,7 +9,7 @@ DEFINES :=
 OPT :=
 
 LIBS := -lpastel
-RPATH := -Wl,-rpath,'$$ORIGIN'
+RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
 
 #
 # --- DEBUG AND RELEASE
@@ -18,7 +19,7 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT += -O0
 	DEBUGFLAGS += -g
-	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-variable
+	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)
 	DEFINES += -DNDEBUG
@@ -77,7 +78,12 @@ $(TARGET): $(OBJS)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
 	$(POSTBUILD)
 
-$(OBJ_DIR)/%.o: %
+$(OBJ_DIR)/%.c.o: %.c
+	mkdir -p $(dir $@)
+	$(info $<...)
+	$(CC) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@

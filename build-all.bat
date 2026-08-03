@@ -8,7 +8,6 @@ for %%A in (%*) do (
     )
     IF /I "%%~A" == "rebuild" (
         make clean
-        rm compile_commands.json
     )
 ) 
 
@@ -22,9 +21,13 @@ echo:
 
 echo Building to %build_opt%
 echo:
-compiledb -- make BUILD=%build_opt%
+
+if exist compile_commands.json rm compile_commands.json
+make -n VERBOSE=1 BUILD=%build_opt% > .build.log.txt
+compiledb --parse .build.log.txt
+make BUILD=%build_opt%
 
 echo ----- BUILD FINISHED -----
 echo: 
 
-start "" /D "build\%build_dir%\bin\" "sandbox.exe"
+"build\%build_dir%\bin\sandbox.exe"

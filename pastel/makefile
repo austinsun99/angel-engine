@@ -1,3 +1,4 @@
+CC := gcc
 CXX := g++
 
 INCLUDES := -I.
@@ -13,7 +14,7 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT := -O0
 	DEBUGFLAGS := -g
-	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-variable
+	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=attributes -Wno-attributes
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)
 	DEFINES += -DNDEBUG
@@ -48,6 +49,8 @@ ifeq ($(OS),Windows_NT)
 else
 	UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
+	TARGET := $(LIB_DIR)/libpastel.so
+	LIBFLAGS := -shared
 	DISPLAY_SERVER := $(shell \
 					  if [ "$$XDG_SESSION_TYPE" = "wayland" ]; then echo "wayland"; \
 					  elif [ -n "$$WAYLAND_DISPLAY" ]; then echo "wayland"; \
@@ -56,8 +59,6 @@ ifeq ($(UNAME),Linux)
 	ifeq ($(DISPLAY_SERVER),wayland)
 	WAYLAND_SESSION := true
 	endif
-	TARGET := $(LIB_DIR)/libpastel.so
-	LIBFLAGS := -shared -fPIC
 endif
 endif
 
@@ -71,20 +72,22 @@ $(info )
 
 WAYLAND_SHELL_DIR := external/wayland-protocols/xdg-shell
 WAYLAND_SHELL_PROTOCOL := $(WAYLAND_SHELL_DIR)/xdg-shell.xml
+XDG_SHELL_PROTOCOL_PATH := $(GEN_DIR)/xdg-shell-client-protocol.c
+XDG_SHELL_PROTOCOL_HEADER_PATH := $(GEN_DIR)/xdg-shell-client-protocol.h
 
 $(shell mkdir -p $(GEN_DIR))
 $(info wayland-scanner xdg-shell-protocol.c)
-$(shell wayland-scanner private-code $(WAYLAND_SHELL_PROTOCOL) $(GEN_DIR)/xdg-shell-protocol.c)
+$(shell wayland-scanner private-code $(WAYLAND_SHELL_PROTOCOL) $(XDG_SHELL_PROTOCOL_PATH))
 $(info wayland-scanner xdg-shell-client-protocol.h)
-$(shell wayland-scanner client-header $(WAYLAND_SHELL_PROTOCOL) $(GEN_DIR)/xdg-shell-client-protocol.h)
+$(shell wayland-scanner client-header $(WAYLAND_SHELL_PROTOCOL) $(XDG_SHELL_PROTOCOL_HEADER_PATH))
 $(info )
 $(info >>> finished file generation)
 $(info )
 
 # Update variables as necessary
-SRCS += $(GEN_DIR)/xdg-shell-protocol.c
+SRCS += $(XDG_SHELL_PROTOCOL_PATH)
 INCLUDES += -I$(GEN_DIR)
-LIBS += -lwayland-client -lrt
+LIBS += -lwayland-client -lrt -lxkbcommon
 endif
 
 OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
@@ -93,7 +96,7 @@ DEPS := $(OBJS:.o=.d)
 #
 # --- FLAGS ---
 #
-CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT)
+CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT) -fPIC
 LDFLAGS := $(LIBFLAGS) $(LIBDIRS)
 LDLIBS := $(LIBS)
 
@@ -101,7 +104,7 @@ LDLIBS := $(LIBS)
 # --- RECIPES ---
 #
 .PHONY: all clean
-# .SILENT:
+.SILENT:
 
 all: $(TARGET)
 
@@ -110,7 +113,12 @@ $(TARGET): $(OBJS)
 	$(info >>> $@ <<<)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
 
-$(OBJ_DIR)/%.o: %
+$(OBJ_DIR)/%.c.o: %.c
+	mkdir -p $(dir $@)
+	$(info $<...)
+	$(CC) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@

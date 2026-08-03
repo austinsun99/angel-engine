@@ -7,6 +7,12 @@ else
 	$(error Unsupported BUILD option)
 endif
 
+ifdef VERBOSE
+	DIRFLAG := --print-directory
+else
+	DIRFLAG := --no-print-directory
+endif
+
 MAKEFILES := pastel sandbox
 
 .PHONY: all $(MAKEFILES) clean
@@ -15,7 +21,7 @@ MAKEFILES := pastel sandbox
 all: $(MAKEFILES)
 
 $(MAKEFILES):
-	$(MAKE) --no-print-directory BUILD=$(BUILD) -C $@ 
+	$(MAKE) $(DIRFLAG) BUILD=$(BUILD) -C $@ 
 
 clean:
 	$(info cleaning...)

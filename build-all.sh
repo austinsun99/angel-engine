@@ -20,7 +20,9 @@ echo "----- BUILDING -----"
 echo
 
 echo "Building to ${build_opt}"
-time bear -- make BUILD=${build_opt}
+
+make -n VERBOSE=1 BUILD=${build_opt} | bear parse-sh
+make BUILD=${build_opt}
 
 echo "----- BUILD FINISHED -----"
 echo
