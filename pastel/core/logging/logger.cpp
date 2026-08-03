@@ -35,7 +35,7 @@ bool log_assert_fail(const char *expr, const char *msg, const char *file, int li
 namespace Pastel::Logger {
 
 void logger_init(WindowState *const state) {
-    // @todo: check window state is initialized.
+    if (!state->console_is_initialized()) return;
     window_state = state;
 }
 

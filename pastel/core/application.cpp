@@ -13,8 +13,11 @@ bool start_application() {
     };
 
     WindowState window_state = WindowState();
-    if (!window_state.open_window(config)) return false;
     Logger::logger_init(&window_state);
+    if (!window_state.open_window(config)) {
+        CORE_LOG_FATAL("Failed to open window")
+        return false;
+    }
 
     // @temp:
     CORE_LOG_FATAL("FATAL MESSAGE TEST")

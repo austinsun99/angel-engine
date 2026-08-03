@@ -1,5 +1,5 @@
-#include <profileapi.h>
-#include <winnt.h>
+#include <errhandlingapi.h>
+#include <cstring>
 #include "defines.h"
 #ifdef PLATFORM_WINDOWS
 
@@ -8,9 +8,11 @@
 #    include <windef.h>
 #    include <windows.h>
 #    include <windowsx.h>
+#    include <winnt.h>
 
 #    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
+#    include "core/logging/logger.h"
 #    include "input.h"
 #    include "platform.h"
 
@@ -27,6 +29,26 @@ struct InternalState {
     double clock_frequency_inverse;
 };
 
+// returns: dynamically allocated string
+static void log_win_error_msg_fatal(DWORD error) {
+    LPSTR msg_buf = nullptr;
+    size_t size =
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      nullptr,
+                      error,
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      reinterpret_cast<LPSTR>(&msg_buf),  // :skull:
+                      0,
+                      nullptr);
+
+    // @todo: replace with string class
+    char *msg = new char[size];
+    std::memcpy(msg, msg_buf, size);
+    LocalFree(msg_buf);
+    CORE_LOG_FATAL(msg);
+    delete[] msg;
+}
+
 WindowState::WindowState() {
     InternalState *internal = new InternalState();
     input                   = Input();
@@ -34,6 +56,23 @@ WindowState::WindowState() {
     width                   = 0;
     height                  = 0;
     internal_state          = internal;
+
+    internal->console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (internal->console_stdout == INVALID_HANDLE_VALUE) {
+        MessageBox(nullptr, "Unable to obtain STD_OUTPUT_HANDLE", TEXT("Error"), MB_OK);
+    }
+
+    if (GetConsoleScreenBufferInfo(internal->console_stdout, &internal->initial_console_screen_buf_info) == FALSE) {
+        MessageBox(nullptr, "Unable to obtain ScreenBufferInfo", TEXT("Error"), MB_OK);
+    };
+
+    LARGE_INTEGER clock_frequency;
+    if (QueryPerformanceFrequency(&clock_frequency) == 0) {
+        // This should be unreachable on Windows XP systems and later
+        MessageBox(nullptr, "Unable to obtain high-resolution performance counter", TEXT("Error"), MB_OK);
+    };
+    internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
+    console_initialized = true;
 }
 
 WindowState::~WindowState() {
@@ -48,18 +87,12 @@ void WindowState::update() {
 bool WindowState::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
 
-    internal->console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (internal->console_stdout == INVALID_HANDLE_VALUE) {
-        // @todo: error message
+    CORE_LOG_INFO("Starting open window process...");
+    if (GetModuleHandleEx(0, nullptr, &internal->instance) == 0) {
+        log_win_error_msg_fatal(GetLastError());
+        return false;
     }
-
-    GetConsoleScreenBufferInfo(internal->console_stdout, &internal->initial_console_screen_buf_info);
-
-    LARGE_INTEGER clock_frequency;
-    QueryPerformanceFrequency(&clock_frequency);
-    internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
-
-    if (!GetModuleHandleEx(0, nullptr, &internal->instance)) return false;
+    CORE_LOG_INFO("Windows (1/3): Obtained module handle")
 
     WNDCLASSEX wnd_class = WNDCLASSEX{
         .cbSize      = sizeof(WNDCLASSEX),
@@ -83,16 +116,29 @@ bool WindowState::open_window(const WindowConfig config) {
     // this is equivalent to WS_OVERLAPPEDWINDOW
     const DWORD wnd_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
 
-    RECT border_rect = {};
+    RECT border_rect = {
+        .left   = 0,
+        .top    = 0,
+        .right  = 0,
+        .bottom = 0,
+    };
+
     // @hack: the MSDN documentation specifies WS_OVERLAPPED cannot be specified
-    AdjustWindowRectEx(&border_rect, wnd_style, FALSE, ex_wnd_style);
+    if (AdjustWindowRectEx(&border_rect, wnd_style, FALSE, ex_wnd_style) == false) {
+        CORE_LOG_ERROR(
+            "Unable to obtain window rect. Defaulting to a rect of 0, 0, 0, 0. This may result in a window that is "
+            "chopped off the screen");
+    }
 
     const int winx       = config.x;
     const int winy       = config.y;
     const int win_width  = config.width + border_rect.right - border_rect.left;
     const int win_height = config.height + border_rect.bottom - border_rect.top;
 
-    if (RegisterClassEx(&wnd_class) == 0) return false;
+    if (RegisterClassEx(&wnd_class) == FALSE) {
+        log_win_error_msg_fatal(GetLastError());
+        return false;
+    }
 
     HWND hwnd = CreateWindowEx(ex_wnd_style,
                                internal->WINDOW_CLASS,
@@ -109,18 +155,19 @@ bool WindowState::open_window(const WindowConfig config) {
                                nullptr,  // menu
                                internal->instance,
                                this);
+    CORE_LOG_INFO("Windows (2/3): Window has been created")
 
     if (hwnd == nullptr) {
-        // @todo: obtain error with GetLastError
+        log_win_error_msg_fatal(GetLastError());
         return false;
     }
 
+    CORE_LOG_INFO("Windows (3/3): Showing window...")
     ShowWindow(hwnd, SW_SHOW);
     return true;
 }
 
 bool WindowState::pump_window() {
-    // @todo: set running to false on window post quit message
     MSG msg;
     const UINT msg_filter_min = 0;
     const UINT msg_filter_max = 0;
@@ -176,6 +223,10 @@ void WindowState::clear_terminal_colour() {
     SetConsoleTextAttribute(state->console_stdout, state->initial_console_screen_buf_info.wAttributes);
 }
 
+void WindowState::on_window_close() {
+    CORE_LOG_INFO("Windows: closing window")
+}
+
 double WindowState::get_time() {
     InternalState *internal = static_cast<InternalState *>(internal_state);
     LARGE_INTEGER counter;
@@ -185,6 +236,10 @@ double WindowState::get_time() {
 
 double WindowState::get_delta_time() {
     return current_time - prev_time;
+}
+
+bool WindowState::console_is_initialized() {
+    return console_initialized;
 }
 
 }  // namespace Pastel
@@ -241,7 +296,6 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             int x = GET_X_LPARAM(lparam);
             int y = GET_Y_LPARAM(lparam);
             state->input.process_mouse_position(x, y);
-            // @todo
         } break;
         case WM_MOUSEWHEEL: {
             state->input.process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));
@@ -252,8 +306,8 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         case WM_CLOSE: {
             const WORD system_language = 0;
             if (MessageBoxEx(hwnd, "Quit program?", "Quit", MB_OKCANCEL, system_language) == IDOK) {
-                // @todo: halt execution of program on destroy window.
-                // @todo: include some callback before complete application shutdown.
+                state->on_window_close();
+                state->running = false;
                 DestroyWindow(hwnd);
             }
             return 0;

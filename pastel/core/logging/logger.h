@@ -3,6 +3,7 @@
 #include "core/platform/platform.h"
 #include "defines.h"
 
+// @todo: add logging steps
 namespace Pastel::Logger {
 
 enum LogLevel {

@@ -43,8 +43,12 @@ class WindowState {
     double get_delta_time();
 
     void *get_internal_state();
+    void on_window_close();
+    
+    bool console_is_initialized();
 
    private:
+    bool console_initialized;
     double current_time;
     double prev_time;
     void *internal_state;
