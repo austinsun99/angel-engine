@@ -695,9 +695,9 @@ bool WindowState::pump_window() {
 
 constexpr int terminal_colour_to_code(Io::TerminalColour colour) {
     switch (colour) {
-        case Io::TERMINAL_COLOUR_NONE:
+        case Io::TERMINAL_COLOUR_BLACK:
         case Io::TERMINAL_COLOUR_MAX:
-            return 0;  // black
+            return 0;
         case Io::TERMINAL_COLOUR_RED:
             return 1;
         case Io::TERMINAL_COLOUR_GREEN:
@@ -714,6 +714,8 @@ constexpr int terminal_colour_to_code(Io::TerminalColour colour) {
         case Io::TERMINAL_COLOUR_LIGHTGRAY:
         case Io::TERMINAL_COLOUR_WHITE:
             return 7;
+        case Io::TERMINAL_COLOUR_NONE:
+            return 9;
     }
     return 0;
 }

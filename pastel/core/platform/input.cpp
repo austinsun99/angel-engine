@@ -58,13 +58,15 @@ void Input::process_mouse_wheel(int delta) {
 void Input::print_pressed_keys() {
     for (int i = 0; i < Keycode::MAX_KEYS; i++) {
         if (current_state.keys[i] != previous_state.keys[i]) {
-            std::cout << "keycode pressed: " << i << std::endl;
+            const char *action = current_state.keys[i] ? "pressed: " : "released: ";
+            std::cout << "keycode " << action << i << std::endl;
         }
     }
 
     for (int i = 0; i < MouseButton::MAX_BUTTONS; i++) {
         if (current_state.mouse_button[i] != previous_state.keys[i]) {
-            std::cout << "button pressed: " << i << std::endl;
+            const char *action = current_state.keys[i] ? "pressed: " : "released: ";
+            std::cout << "button " << action << i << std::endl;
         }
     }
 

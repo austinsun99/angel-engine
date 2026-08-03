@@ -1,5 +1,11 @@
 #pragma once
 
+#if defined(DEBUG)
+#    define PASTEL_DEBUG 1
+#elif defined(NDEBUG)
+#    define PASTEL_RELEASE 1
+#endif
+
 /**
  * PLATFORM DETECTION
  */
