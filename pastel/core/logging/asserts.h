@@ -4,7 +4,7 @@
 #include "assert.h"
 
 namespace Pastel {
-PASTEL_API bool log_assert_fail(const char *expr, const char *msg, const char *file, int line);
+bool log_assert_fail(const char *expr, const char *msg, const char *file, int line);
 
 #if _MSC_VER
 #    include <intrin.h>

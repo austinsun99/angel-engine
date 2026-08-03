@@ -19,7 +19,13 @@ bool log_assert_fail(const char *expr, const char *msg, const char *file, int li
         std::snprintf(assertion_msg, sizeof(assertion_msg), "\n# %s", msg);
     }
 
-    std::snprintf(msg_buf, sizeof(msg_buf), "\n# Assertion %s failed \n# @ %s\n# @ line %d%s\n", expr, file, line, assertion_msg);
+    std::snprintf(msg_buf,
+                  sizeof(msg_buf),
+                  "\n# Assertion %s failed \n# @ %s\n# @ line %d%s\n",
+                  expr,
+                  file,
+                  line,
+                  assertion_msg);
     window_state->print_terminal(msg_buf, fg);
     window_state->clear_terminal_colour();
     return true;

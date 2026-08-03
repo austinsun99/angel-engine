@@ -1,6 +1,9 @@
 C:/ProgramData/chocolatey/lib/make/tools/bin/make --print-directory BUILD=DEBUG -C pastel 
-core/logging/logger.cpp...
+core/application.cpp...
 make[1]: Entering directory `C:/Users/Austin/dev/sandbox/cpp/game-engine/pastel'
+mkdir -p ../build/debug/obj/pastel/./core/
+g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=attributes -Wno-attributes -g -DPASTEL_EXPORT -DDEBUG -O0 -fPIC -c core/application.cpp -o ../build/debug/obj/pastel/./core/application.cpp.o
+core/logging/logger.cpp...
 mkdir -p ../build/debug/obj/pastel/./core/logging/
 g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=attributes -Wno-attributes -g -DPASTEL_EXPORT -DDEBUG -O0 -fPIC -c core/logging/logger.cpp -o ../build/debug/obj/pastel/./core/logging/logger.cpp.o
 core/platform/input.cpp...
@@ -14,7 +17,7 @@ mkdir -p ../build/debug/obj/pastel/./core/platform/
 g++ -I. -MMD -MP  -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=attributes -Wno-attributes -g -DPASTEL_EXPORT -DDEBUG -O0 -fPIC -c core/platform/platform_win.cpp -o ../build/debug/obj/pastel/./core/platform/platform_win.cpp.o
 >>> ../build/debug/lib/pastel.dll <<<
 mkdir -p ../build/debug/lib/
-g++ ../build/debug/obj/pastel/./core/logging/logger.cpp.o ../build/debug/obj/pastel/./core/platform/input.cpp.o ../build/debug/obj/pastel/./core/platform/platform_wayland.cpp.o ../build/debug/obj/pastel/./core/platform/platform_win.cpp.o -shared -Wl,--out-implib,../build/debug/lib/libpastel.a   -o ../build/debug/lib/pastel.dll
+g++ ../build/debug/obj/pastel/./core/application.cpp.o ../build/debug/obj/pastel/./core/logging/logger.cpp.o ../build/debug/obj/pastel/./core/platform/input.cpp.o ../build/debug/obj/pastel/./core/platform/platform_wayland.cpp.o ../build/debug/obj/pastel/./core/platform/platform_win.cpp.o -shared -Wl,--out-implib,../build/debug/lib/libpastel.a   -o ../build/debug/lib/pastel.dll
 make[1]: Leaving directory `C:/Users/Austin/dev/sandbox/cpp/game-engine/pastel'
 C:/ProgramData/chocolatey/lib/make/tools/bin/make --print-directory BUILD=DEBUG -C sandbox 
 main.cpp...

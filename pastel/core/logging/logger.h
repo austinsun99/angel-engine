@@ -14,8 +14,8 @@ enum LogLevel {
     LOG_LEVEL_TRACE,
 };
 
-PASTEL_API void logger_init(WindowState *const state);
-PASTEL_API void log_output(LogLevel level, const char *fmt, const char *file, int line, ...);
+void logger_init(WindowState *const state);
+void log_output(LogLevel level, const char *fmt, const char *file, int line, ...);
 
 #define LOG_FATAL_ENABLED 1
 #define LOG_ERROR_ENABLED 1
