@@ -23,6 +23,7 @@ int main() {
     CORE_LOG_INFO("INFO MESSAGE TEST")
     CORE_LOG_DEBUG("DEBUG MESSAGE TEST")
     CORE_LOG_TRACE("TRACE MESSAGE TEST")
+    window_state.clear_terminal_colour();
 
     int i = 0;
     (void)i;
@@ -33,13 +34,12 @@ int main() {
             window_state.running = false;
         }
 
-        // CORE_LOG_TRACE("index: %d, delta time: %f, fps: %f\n",
-        //          i,
-        //          window_state.get_delta_time(),
-        //          1.0 / window_state.get_delta_time())
-        // window_state.get_delta_time());
+        CORE_LOG_INFO("index: %d, delta time: %f, fps: %f\n",
+                      i,
+                      window_state.get_delta_time(),
+                      1.0 / window_state.get_delta_time())
 
         // @temp
-        window_state.input.print_pressed_keys();
+        // window_state.input.print_pressed_keys();
     }
 }
