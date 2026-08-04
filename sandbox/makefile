@@ -7,6 +7,7 @@ WARNINGS :=
 DEBUGFLAGS :=
 DEFINES :=
 OPT :=
+LDFLAGS :=
 
 LIBS := -lpastel
 RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
@@ -19,6 +20,7 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT += -O0
 	DEBUGFLAGS += -g
+	LDFLAGS += -fsanitize=address
 	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)
@@ -37,7 +39,7 @@ ENGINE_LIB_DIR := $(BUILD_DIR)/lib
 LIBDIRS := -L$(ENGINE_LIB_DIR)
 
 CXXFLAGS := $(INCLUDES) $(DEPFLAGS) $(WARNINGS) $(DEBUGFLAGS) $(DEFINES) $(OPT)
-LDFLAGS := $(LIBDIRS) $(RPATH)
+LDFLAGS += $(LIBDIRS) $(RPATH)
 LDLIBS := $(LIBS)
 
 #

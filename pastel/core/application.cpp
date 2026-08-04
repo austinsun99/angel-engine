@@ -24,6 +24,9 @@ bool application_lifecycle() {
         .application_name = "PASTEL Engine",
     };
 
+    int* arr = pt_memnew_many(Memory::MEMORY_CATEGORY_PLATFORM, int, 32);
+    pt_memdelete_many(Memory::MEMORY_CATEGORY_PLATFORM, arr, 32);
+
     WindowState window_state = WindowState();
     Logger::logger_init(&window_state);
     if (!window_state.open_window(config)) {

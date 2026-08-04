@@ -39,6 +39,8 @@ struct InternalState {
     struct wl_seat *wl_seat;
     struct wl_pointer *wl_pointer;
     struct wl_keyboard *wl_keyboard;
+    struct wl_shm_pool *wl_shm_pool;
+    struct wl_buffer *wl_buffer;
 
     struct xdg_wm_base *xdg_wm_base;
 
@@ -594,6 +596,8 @@ WindowState::WindowState() {
 
 WindowState::~WindowState() {
     InternalState *internal = static_cast<InternalState *>(internal_state);
+    wl_buffer_destroy(internal->wl_buffer);
+    wl_shm_pool_destroy(internal->wl_shm_pool);
     wl_shm_destroy(internal->wl_shm);
 
     xdg_surface_destroy(internal->xdg_surface);
@@ -609,6 +613,10 @@ WindowState::~WindowState() {
 
     wl_registry_destroy(internal->wl_registry);
     wl_display_disconnect(internal->wl_display);
+
+    xkb_keymap_unref(internal->xkb_keymap);
+    xkb_context_unref(internal->xkb_context);
+    xkb_state_unref(internal->xkb_state);
     pt_memdelete(Memory::MEMORY_CATEGORY_PLATFORM, internal);
 }
 
@@ -654,10 +662,10 @@ bool WindowState::open_window(const WindowConfig config) {
     uint8_t *pool_data = static_cast<uint8_t *>(mmap(nullptr, size * 2, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     (void)pool_data;
 
-    wl_shm_pool *pool = wl_shm_create_pool(internal->wl_shm, fd, size);
-    wl_buffer *buffer = wl_shm_pool_create_buffer(pool, 0, config.width, config.height, stride, WL_SHM_FORMAT_XRGB8888);
+    internal->wl_shm_pool = wl_shm_create_pool(internal->wl_shm, fd, size);
+    internal->wl_buffer = wl_shm_pool_create_buffer(internal->wl_shm_pool, 0, config.width, config.height, stride, WL_SHM_FORMAT_XRGB8888);
 
-    wl_surface_attach(internal->wl_surface, buffer, 0, 0);
+    wl_surface_attach(internal->wl_surface, internal->wl_buffer, 0, 0);
     wl_surface_commit(internal->wl_surface);
 
     return true;
