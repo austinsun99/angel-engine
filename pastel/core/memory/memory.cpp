@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <inttypes.h>
 
 namespace Pastel::Memory {
 
@@ -67,7 +68,7 @@ void log_mem_alloc_info() {
     for (int i = 0; i < MEMORY_CATEGORY_MAX_CATEGORIES; ++i) {
         int bytes_written = snprintf(buf + offset,
                                      sizeof(buf) - offset,
-                                     "%s: %llu bytes allocated\n",
+                                     "%s: %" PRIu64 " bytes allocated\n",
                                      mem_category_names[i],
                                      memory_allocations[i]);
         offset += bytes_written;

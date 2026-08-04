@@ -73,13 +73,13 @@ const static struct {
         (void)states;
         if (width == 0 || height == 0) return;
 
-        WindowState *state = static_cast<WindowState *>(data);
+        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
         state->width       = width;
         state->height      = height;
     }
     static void close(void *data, struct xdg_toplevel *xdg_toplevel) {
         (void)xdg_toplevel;
-        WindowState *state = static_cast<WindowState *>(data);
+        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
 
         state->running = false;
     }
@@ -111,7 +111,7 @@ const static struct {
         (void)serial;
         (void)surface;
 
-        WindowState *window_state = static_cast<WindowState *>(data);
+        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
         const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
         const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
         window_state->input.process_mouse_position(mouse_x, mouse_y);
@@ -130,7 +130,7 @@ const static struct {
                        wl_fixed_t surface_y) {
         (void)wl_pointer;
         (void)time;
-        WindowState *window_state = static_cast<WindowState *>(data);
+        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
         const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
         const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
 
@@ -148,7 +148,7 @@ const static struct {
         (void)wl_pointer;
         (void)serial;
         (void)time;
-        WindowState *window_state       = static_cast<WindowState *>(data);
+        Platform::WindowState *window_state       = static_cast<Platform::WindowState *>(data);
         bool pressed                    = state == WL_POINTER_BUTTON_STATE_PRESSED;
         Input::MouseButton mouse_button = Input::MAX_BUTTONS;
         switch (button) {
@@ -235,7 +235,7 @@ const static struct {
         (void)wl_keyboard;
         (void)format;
 
-        WindowState *state      = static_cast<WindowState *>(data);
+        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
         InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
         // @todo: assert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
 
@@ -454,7 +454,7 @@ const static struct {
         (void)serial;
         (void)time;
 
-        WindowState *window_state = static_cast<WindowState *>(data);
+        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
         InternalState *internal   = static_cast<InternalState *>(window_state->get_internal_state());
 
         const xkb_keycode_t keycode = key + 8;
@@ -504,7 +504,7 @@ const static struct {
 const static struct {
     static void capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         (void)wl_seat;
-        WindowState *state      = static_cast<WindowState *>(data);
+        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
         InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         bool has_pointer  = capabilities & WL_SEAT_CAPABILITY_POINTER;
@@ -544,7 +544,7 @@ const static struct {
                        const char *interface,
                        uint32_t version) {
         (void)wl_registry;
-        WindowState *state      = static_cast<WindowState *>(data);
+        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
         InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -584,7 +584,7 @@ const static struct {
     };
 } wl_registry_listener;
 
-namespace Pastel {
+namespace Pastel::Platform {
 
 WindowState::WindowState() {
     running             = true;
@@ -663,7 +663,12 @@ bool WindowState::open_window(const WindowConfig config) {
     (void)pool_data;
 
     internal->wl_shm_pool = wl_shm_create_pool(internal->wl_shm, fd, size);
-    internal->wl_buffer = wl_shm_pool_create_buffer(internal->wl_shm_pool, 0, config.width, config.height, stride, WL_SHM_FORMAT_XRGB8888);
+    internal->wl_buffer   = wl_shm_pool_create_buffer(internal->wl_shm_pool,
+                                                      0,
+                                                      config.width,
+                                                      config.height,
+                                                      stride,
+                                                      WL_SHM_FORMAT_XRGB8888);
 
     wl_surface_attach(internal->wl_surface, internal->wl_buffer, 0, 0);
     wl_surface_commit(internal->wl_surface);
@@ -703,6 +708,24 @@ bool WindowState::pump_window() {
     return true;
 }
 
+double WindowState::get_time() {
+    timespec time_out;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &time_out);
+    return time_out.tv_sec + time_out.tv_nsec * 0.000000001;
+}
+
+double WindowState::get_delta_time() {
+    return current_time - prev_time;
+}
+
+void *WindowState::get_internal_state() {
+    return internal_state;
+}
+
+bool WindowState::console_is_initialized() {
+    return console_initialized;
+}
+
 constexpr int terminal_colour_to_code(Io::TerminalColour colour) {
     switch (colour) {
         case Io::TERMINAL_COLOUR_BLACK:
@@ -730,7 +753,7 @@ constexpr int terminal_colour_to_code(Io::TerminalColour colour) {
     return 0;
 }
 
-void WindowState::print_terminal_raw(const char *msg) {
+void print_terminal_raw(const char *msg) {
     int len = strlen(msg);
     ssize_t res;
     while (len > 0 && (res = write(STDOUT_FILENO, msg, len) != len)) {
@@ -742,11 +765,11 @@ void WindowState::print_terminal_raw(const char *msg) {
     }
 }
 
-void WindowState::clear_terminal_colour() {
+void clear_terminal_colour() {
     print_terminal_raw("\e[0m");
 }
 
-void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
+void print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
     const int fg_code = 30 + terminal_colour_to_code(fg);
     const int bg_code = 40 + terminal_colour_to_code(bg);
 
@@ -757,24 +780,6 @@ void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::Ter
     clear_terminal_colour();
 }
 
-double WindowState::get_time() {
-    timespec time_out;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &time_out);
-    return time_out.tv_sec + time_out.tv_nsec * 0.000000001;
-}
-
-double WindowState::get_delta_time() {
-    return current_time - prev_time;
-}
-
-void *WindowState::get_internal_state() {
-    return internal_state;
-}
-
-bool WindowState::console_is_initialized() {
-    return console_initialized;
-}
-
-}  // namespace Pastel
+}  // namespace Pastel::Platform
 
 #endif

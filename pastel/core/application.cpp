@@ -33,10 +33,7 @@ bool application_lifecycle() {
 
     Platform::clear_terminal_colour();
 
-    int i = 0;
-    (void)i;
     while (window_state.running) {
-        i++;
         window_state.update();
         if (!window_state.pump_window()) {
             window_state.running = false;
