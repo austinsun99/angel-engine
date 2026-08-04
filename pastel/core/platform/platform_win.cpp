@@ -1,5 +1,3 @@
-#include <errhandlingapi.h>
-#include <cstring>
 #include "defines.h"
 #ifdef PLATFORM_WINDOWS
 
@@ -9,6 +7,8 @@
 #    include <windows.h>
 #    include <windowsx.h>
 #    include <winnt.h>
+#    include <errhandlingapi.h>
+#    include <cstring>
 
 #    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
@@ -72,7 +72,7 @@ WindowState::WindowState() {
         MessageBox(nullptr, "Unable to obtain high-resolution performance counter", TEXT("Error"), MB_OK);
     };
     internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
-    console_initialized = true;
+    console_initialized               = true;
 }
 
 WindowState::~WindowState() {

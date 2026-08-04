@@ -6,6 +6,7 @@
 #    include "core/platform/platform.h"
 #    include "platform.h"
 #    include "input.h"
+#    include "core/memory/memory.h"
 
 #    include <wayland-util.h>
 
@@ -524,9 +525,9 @@ const static struct {
         }
     }
     static void name(void *data, struct wl_seat *wl_seat, const char *name) {
+        (void)name;
         (void)data;
         (void)wl_seat;
-        printf("Name: %s\n", name);
     }
     wl_seat_listener listener = wl_seat_listener{
         .capabilities = capabilities,
@@ -584,10 +585,11 @@ const static struct {
 namespace Pastel {
 
 WindowState::WindowState() {
-    running        = true;
-    width          = 0;
-    height         = 0;
-    internal_state = new InternalState();
+    running             = true;
+    width               = 0;
+    height              = 0;
+    console_initialized = true;
+    internal_state      = pt_memnew(Memory::MEMORY_CATEGORY_PLATFORM, InternalState);
 };
 
 WindowState::~WindowState() {
@@ -607,7 +609,7 @@ WindowState::~WindowState() {
 
     wl_registry_destroy(internal->wl_registry);
     wl_display_disconnect(internal->wl_display);
-    delete internal;
+    pt_memdelete(Memory::MEMORY_CATEGORY_PLATFORM, internal);
 }
 
 void WindowState::update() {
@@ -760,6 +762,11 @@ double WindowState::get_delta_time() {
 void *WindowState::get_internal_state() {
     return internal_state;
 }
+
+bool WindowState::console_is_initialized() {
+    return console_initialized;
+}
+
 }  // namespace Pastel
 
 #endif

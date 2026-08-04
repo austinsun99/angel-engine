@@ -1,9 +1,21 @@
 #include "application.h"
 #include "core/logging/logger.h"
+#include "core/memory/memory.h"
 #include "core/platform/platform.h"
 
 namespace Pastel {
+bool application_lifecycle();
+
 bool start_application() {
+    Memory::init_memory();
+    if (!application_lifecycle()) {
+        CORE_LOG_FATAL("Could not start application")
+    }
+    Memory::deinit_memory();
+    return true;
+}
+
+bool application_lifecycle() {
     WindowConfig config = {
         .x                = 0,
         .y                = 0,
@@ -48,4 +60,5 @@ bool start_application() {
     }
     return true;
 }
+
 }  // namespace Pastel
