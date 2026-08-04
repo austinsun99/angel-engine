@@ -20,7 +20,6 @@ ifeq ($(BUILD),DEBUG)
 	DEFINES += -DDEBUG
 	OPT += -O0
 	DEBUGFLAGS += -g
-	LDFLAGS += -fsanitize=address
 	WARNINGS += -Wall -Wextra -Werror -Wno-error=unused-parameter
 	BUILD_DIR := ../build/debug
 else ifeq ($(BUILD),RELEASE)

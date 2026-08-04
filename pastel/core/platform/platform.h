@@ -3,7 +3,7 @@
 #include "core/platform/input.h"
 #include "core/io/terminal_colours.h"
 
-namespace Pastel {
+namespace Pastel::Platform {
 struct WindowConfig {
     int x;
     int y;
@@ -29,14 +29,6 @@ class WindowState {
     bool open_window(const WindowConfig config);
     bool pump_window();
 
-    void print_terminal_raw(const char *msg);
-    void clear_terminal_colour();
-    // @todo: use templates for compile time colour?
-    // @todo: allow specifying stdout vs stderr
-    void print_terminal(const char *msg,
-                        Io::TerminalColour fg = Io::TERMINAL_COLOUR_WHITE,
-                        Io::TerminalColour bg = Io::TERMINAL_COLOUR_NONE);
-
     // Obtains the current time. The starting point of the time is unspecified.
     // This method is used for getting differences in time.
     double get_time();
@@ -44,7 +36,7 @@ class WindowState {
 
     void *get_internal_state();
     void on_window_close();
-    
+
     bool console_is_initialized();
 
    private:
@@ -53,4 +45,13 @@ class WindowState {
     double prev_time;
     void *internal_state;
 };
-}  // namespace Pastel
+
+// @todo: use templates for compile time colour?
+// @todo: allow specifying stdout vs stderr
+void print_terminal(const char *msg,
+                    Io::TerminalColour fg = Io::TERMINAL_COLOUR_WHITE,
+                    Io::TerminalColour bg = Io::TERMINAL_COLOUR_NONE);
+void console_write(const char *msg);
+void clear_terminal_colour();
+
+}  // namespace Pastel::Platform

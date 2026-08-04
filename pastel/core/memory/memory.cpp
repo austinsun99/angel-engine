@@ -23,12 +23,14 @@ void init_memory() {
 }
 
 void deinit_memory() {
+#if defined(PASTEL_DEBUG)
     for (int i = 0; i < MEMORY_CATEGORY_MAX_CATEGORIES; ++i) {
         if (memory_allocations[i] > 0) {
             CORE_LOG_WARN("Memory leak detected! See more information below.")
         }
     }
     log_mem_alloc_info();
+#endif
 }
 
 void record_mem_alloc(MemoryCategory memtype, std::size_t size) {
@@ -65,7 +67,7 @@ void log_mem_alloc_info() {
     for (int i = 0; i < MEMORY_CATEGORY_MAX_CATEGORIES; ++i) {
         int bytes_written = snprintf(buf + offset,
                                      sizeof(buf) - offset,
-                                     "%s: %lu bytes allocated\n",
+                                     "%s: %llu bytes allocated\n",
                                      mem_category_names[i],
                                      memory_allocations[i]);
         offset += bytes_written;

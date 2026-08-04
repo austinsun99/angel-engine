@@ -16,7 +16,7 @@ bool start_application() {
 }
 
 bool application_lifecycle() {
-    WindowConfig config = {
+    Platform::WindowConfig config = {
         .x                = 0,
         .y                = 0,
         .width            = 1920,
@@ -24,25 +24,14 @@ bool application_lifecycle() {
         .application_name = "PASTEL Engine",
     };
 
-    int* arr = pt_memnew_many(Memory::MEMORY_CATEGORY_PLATFORM, int, 32);
-    pt_memdelete_many(Memory::MEMORY_CATEGORY_PLATFORM, arr, 32);
-
-    WindowState window_state = WindowState();
-    Logger::logger_init(&window_state);
+    Platform::WindowState window_state = Platform::WindowState();
+    Logger::logger_init();
     if (!window_state.open_window(config)) {
         CORE_LOG_FATAL("Failed to open window")
         return false;
     }
 
-    // @temp:
-    CORE_LOG_FATAL("FATAL MESSAGE TEST")
-    CORE_LOG_ERROR("ERROR MESSAGE TEST")
-    CORE_LOG_WARN("WARN MESSAGE TEST")
-    CORE_LOG_INFO("INFO MESSAGE TEST")
-    CORE_LOG_DEBUG("DEBUG MESSAGE TEST")
-    CORE_LOG_TRACE("TRACE MESSAGE TEST")
-
-    window_state.clear_terminal_colour();
+    Platform::clear_terminal_colour();
 
     int i = 0;
     (void)i;
@@ -52,14 +41,6 @@ bool application_lifecycle() {
         if (!window_state.pump_window()) {
             window_state.running = false;
         }
-
-        // CORE_LOG_INFO("index: %d, delta time: %f, fps: %f\n",
-        //               i,
-        //               window_state.get_delta_time(),
-        //               1.0 / window_state.get_delta_time())
-
-        // @temp
-        // window_state.input.print_pressed_keys();
     }
     return true;
 }
