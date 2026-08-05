@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include "pastel_types.h"
 
 using namespace Pastel;
 
@@ -45,7 +46,7 @@ void Input::process_mouse_button(MouseButton button, bool pressed) {
     current_state.mouse_button[button] = pressed;
 }
 
-void Input::process_mouse_position(uint16_t x, uint16_t y) {
+void Input::process_mouse_position(int x, int y) {
     current_state.mouse_x = x;
     current_state.mouse_y = y;
 }

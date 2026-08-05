@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "pastel_types.h"
 #ifdef PLATFORM_LINUX
 
 #    include "xdg-shell-client-protocol.h"
@@ -6,6 +7,8 @@
 #    include "core/platform/platform.h"
 #    include "platform.h"
 #    include "input.h"
+#    include "core/logging/logger.h"
+#    include "core/logging/asserts.h"
 #    include "core/memory/memory.h"
 
 #    include <wayland-util.h>
@@ -74,8 +77,8 @@ const static struct {
         if (width == 0 || height == 0) return;
 
         Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
-        state->width       = width;
-        state->height      = height;
+        state->width                 = width;
+        state->height                = height;
     }
     static void close(void *data, struct xdg_toplevel *xdg_toplevel) {
         (void)xdg_toplevel;
@@ -112,8 +115,8 @@ const static struct {
         (void)surface;
 
         Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
-        const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
+        const uint16_t mouse_x              = wl_fixed_to_int(surface_x);
+        const uint16_t mouse_y              = wl_fixed_to_int(surface_y);
         window_state->input.process_mouse_position(mouse_x, mouse_y);
     }
 
@@ -131,11 +134,10 @@ const static struct {
         (void)wl_pointer;
         (void)time;
         Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        const uint16_t mouse_x    = wl_fixed_to_int(surface_x);
-        const uint16_t mouse_y    = wl_fixed_to_int(surface_y);
+        const int mouse_x                   = wl_fixed_to_int(surface_x);
+        const int mouse_y                   = wl_fixed_to_int(surface_y);
 
-        // @fix: mouse position goes to ~65565 when nearing edge of window,
-        // supposedly because of wraparound.
+        // @fix: mouse position wraps around to ~65565 when nearing edge of window, supposedly because of wraparound.
         window_state->input.process_mouse_position(mouse_x, mouse_y);
     }
 
@@ -148,9 +150,9 @@ const static struct {
         (void)wl_pointer;
         (void)serial;
         (void)time;
-        Platform::WindowState *window_state       = static_cast<Platform::WindowState *>(data);
-        bool pressed                    = state == WL_POINTER_BUTTON_STATE_PRESSED;
-        Input::MouseButton mouse_button = Input::MAX_BUTTONS;
+        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
+        bool pressed                        = state == WL_POINTER_BUTTON_STATE_PRESSED;
+        Input::MouseButton mouse_button     = Input::MAX_BUTTONS;
         switch (button) {
             case BTN_LEFT:
                 mouse_button = Input::MOUSE_LEFT;
@@ -235,14 +237,14 @@ const static struct {
         (void)wl_keyboard;
         (void)format;
 
-        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
-        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
-        // @todo: assert(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
+        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
+        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
+        PASTEL_ASSERT(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
 
         char *map_shm = static_cast<char *>(mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0));
 
-        // @todo: assert(map_shm != MAP_FAILED)
-        // @todo: assert(internal->xkb_context)
+        PASTEL_ASSERT(map_shm != MAP_FAILED)
+        PASTEL_ASSERT(internal->xkb_context != nullptr)
         xkb_keymap *keymap = xkb_keymap_new_from_string(internal->xkb_context,
                                                         map_shm,
                                                         XKB_KEYMAP_FORMAT_TEXT_V1,
@@ -455,11 +457,11 @@ const static struct {
         (void)time;
 
         Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        InternalState *internal   = static_cast<InternalState *>(window_state->get_internal_state());
+        InternalState *internal             = static_cast<InternalState *>(window_state->get_internal_state());
 
         const xkb_keycode_t keycode = key + 8;
         xkb_keysym_t sym            = xkb_state_key_get_one_sym(internal->xkb_state, keycode);
-        // @todo: assert(sym != XKB_KEY_NoSymbol)
+        PASTEL_ASSERT(sym != XKB_KEY_NoSymbol)
 
         const Input::Keycode input_keycode = xkb_to_input(sym);
         if (input_keycode == Input::MAX_KEYS) return;
@@ -504,8 +506,8 @@ const static struct {
 const static struct {
     static void capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         (void)wl_seat;
-        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
-        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
+        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
+        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
 
         bool has_pointer  = capabilities & WL_SEAT_CAPABILITY_POINTER;
         bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
@@ -544,8 +546,8 @@ const static struct {
                        const char *interface,
                        uint32_t version) {
         (void)wl_registry;
-        Platform::WindowState *state      = static_cast<Platform::WindowState *>(data);
-        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
+        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
+        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
 
         if (strcmp(interface, wl_compositor_interface.name) == 0) {
             const uint32_t min_ver  = std::min<uint32_t>(7, version);
@@ -632,13 +634,13 @@ bool WindowState::open_window(const WindowConfig config) {
 
     internal->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     if (internal->xkb_context == nullptr) {
-        // @todo: log error message
+        CORE_LOG_FATAL("Wayland: Could not obtain xkb context")
         return false;
     }
 
     internal->wl_display = wl_display_connect(nullptr);
     if (internal->wl_display == nullptr) {
-        // @todo: log error message
+        CORE_LOG_FATAL("Wayland: Could not connect to display")
         return false;
     }
     internal->wl_registry = wl_display_get_registry(internal->wl_display);
@@ -758,7 +760,7 @@ void print_terminal_raw(const char *msg) {
     ssize_t res;
     while (len > 0 && (res = write(STDOUT_FILENO, msg, len) != len)) {
         if (res < 0 && errno == EINTR) continue;
-        if (res < 0) break;  // @todo: error
+        if (res < 0) return;
 
         len -= res;
         msg += res;

@@ -1,7 +1,10 @@
 #include "application.h"
+#include "containers/vector.hpp"
 #include "core/logging/logger.h"
 #include "core/memory/memory.h"
+#include "core/platform/input.h"
 #include "core/platform/platform.h"
+#include "pastel_types.h"
 
 namespace Pastel {
 bool application_lifecycle();
@@ -38,6 +41,8 @@ bool application_lifecycle() {
         if (!window_state.pump_window()) {
             window_state.running = false;
         }
+
+        window_state.input.print_pressed_keys();
     }
     return true;
 }
