@@ -31,7 +31,7 @@ PASTEL_FORCE_INLINE static void _memdelete(MemoryCategory memtype, T *ptr) {
     delete (ptr);
 }
 
-template <class T, class... Args>
+template <class T>
 PASTEL_FORCE_INLINE static T *_memnew_many(MemoryCategory memtype, u32 count) {
     record_mem_alloc(memtype, sizeof(T) * count);
     return new T[count];

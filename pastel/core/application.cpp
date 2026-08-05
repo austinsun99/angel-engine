@@ -1,7 +1,9 @@
 #include "application.h"
+#include "containers/vector.hpp"
 #include "core/logging/logger.h"
 #include "core/memory/memory.h"
 #include "core/platform/platform.h"
+#include "pastel_types.h"
 
 namespace Pastel {
 bool application_lifecycle();
