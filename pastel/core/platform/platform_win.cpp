@@ -1,5 +1,3 @@
-#include <errhandlingapi.h>
-#include <cstring>
 #include "defines.h"
 #ifdef PLATFORM_WINDOWS
 
@@ -9,6 +7,8 @@
 #    include <windows.h>
 #    include <windowsx.h>
 #    include <winnt.h>
+#    include <errhandlingapi.h>
+#    include <cstring>
 
 #    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
@@ -18,13 +18,13 @@
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
-namespace Pastel {
+namespace Pastel::Platform {
+
+// @hack: using global static handles, and also doing a check for every log to ensure it is initialized.
 struct InternalState {
     const char *WINDOW_CLASS = "Pastel Main Window Class";
-    CONSOLE_SCREEN_BUFFER_INFO initial_console_screen_buf_info;
 
     HINSTANCE instance;
-    HANDLE console_stdout;
 
     double clock_frequency_inverse;
 };
@@ -57,22 +57,12 @@ WindowState::WindowState() {
     height                  = 0;
     internal_state          = internal;
 
-    internal->console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (internal->console_stdout == INVALID_HANDLE_VALUE) {
-        MessageBox(nullptr, "Unable to obtain STD_OUTPUT_HANDLE", TEXT("Error"), MB_OK);
-    }
-
-    if (GetConsoleScreenBufferInfo(internal->console_stdout, &internal->initial_console_screen_buf_info) == FALSE) {
-        MessageBox(nullptr, "Unable to obtain ScreenBufferInfo", TEXT("Error"), MB_OK);
-    };
-
     LARGE_INTEGER clock_frequency;
     if (QueryPerformanceFrequency(&clock_frequency) == 0) {
         // This should be unreachable on Windows XP systems and later
         MessageBox(nullptr, "Unable to obtain high-resolution performance counter", TEXT("Error"), MB_OK);
     };
     internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
-    console_initialized = true;
 }
 
 WindowState::~WindowState() {
@@ -205,24 +195,6 @@ constexpr int terminal_colour_to_id(Io::TerminalColour colour) {
     return 0;
 }
 
-void WindowState::print_terminal_raw(const char *msg) {
-    InternalState *state = static_cast<InternalState *>(internal_state);
-    DWORD num_written    = 0;
-    WriteConsole(state->console_stdout, msg, strlen(msg), &num_written, nullptr);
-}
-
-void WindowState::print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
-    int colour_id        = terminal_colour_to_id(bg) * 16 + terminal_colour_to_id(fg);
-    InternalState *state = static_cast<InternalState *>(internal_state);
-    SetConsoleTextAttribute(state->console_stdout, colour_id);
-    print_terminal_raw(msg);
-}
-
-void WindowState::clear_terminal_colour() {
-    InternalState *state = static_cast<InternalState *>(internal_state);
-    SetConsoleTextAttribute(state->console_stdout, state->initial_console_screen_buf_info.wAttributes);
-}
-
 void WindowState::on_window_close() {
     CORE_LOG_INFO("Windows: closing window")
 }
@@ -242,28 +214,47 @@ bool WindowState::console_is_initialized() {
     return console_initialized;
 }
 
-}  // namespace Pastel
+void console_write(const char *msg) {
+    HANDLE console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (console_stdout == INVALID_HANDLE_VALUE) {
+        MessageBox(nullptr, "Unable to obtain STD_OUTPUT_HANDLE", TEXT("Error"), MB_OK);
+    }
+    DWORD num_written = 0;
+    WriteConsole(console_stdout, msg, strlen(msg), &num_written, nullptr);
+}
 
-using namespace Pastel;
+void print_terminal(const char *msg, Io::TerminalColour fg, Io::TerminalColour bg) {
+    int colour_id         = terminal_colour_to_id(bg) * 16 + terminal_colour_to_id(fg);
+    HANDLE console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(console_stdout, colour_id);
+    console_write(msg);
+}
+
+void clear_terminal_colour() {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
+
+}  // namespace Pastel::Platform
+
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
-    WindowState *state;
+    ::Pastel::Platform::WindowState *state;
     if (msg == WM_CREATE) {
         CREATESTRUCT *create = reinterpret_cast<CREATESTRUCT *>(lparam);
-        state                = reinterpret_cast<WindowState *>(create->lpCreateParams);
+        state                = reinterpret_cast<::Pastel::Platform::WindowState *>(create->lpCreateParams);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state));
         return TRUE;
     }
 
     LONG_PTR data = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    state         = reinterpret_cast<WindowState *>(data);
+    state         = reinterpret_cast<::Pastel::Platform::WindowState *>(data);
 
     switch (msg) {
         case WM_KEYDOWN:
         case WM_SYSKEYDOWN:
         case WM_KEYUP:
         case WM_SYSKEYUP: {
-            const bool pressed       = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
-            const Input::Keycode key = static_cast<Input::Keycode>(wparam);
+            const bool pressed                 = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
+            const ::Pastel::Input::Keycode key = static_cast<::Pastel::Input::Keycode>(wparam);
 
             state->input.process_key(key, pressed);
         } break;
@@ -273,20 +264,20 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         case WM_LBUTTONUP:
         case WM_MBUTTONUP:
         case WM_RBUTTONUP: {
-            const bool pressed              = msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN;
-            Input::MouseButton mouse_button = Input::MouseButton::MAX_BUTTONS;
+            const bool pressed = msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN;
+            ::Pastel::Input::MouseButton mouse_button = ::Pastel::Input::MouseButton::MAX_BUTTONS;
             switch (msg) {
                 case WM_LBUTTONDOWN:
                 case WM_LBUTTONUP:
-                    mouse_button = Input::MouseButton::MOUSE_LEFT;
+                    mouse_button = ::Pastel::Input::MouseButton::MOUSE_LEFT;
                     break;
                 case WM_MBUTTONDOWN:
                 case WM_MBUTTONUP:
-                    mouse_button = Input::MouseButton::MOUSE_MIDDLE;
+                    mouse_button = ::Pastel::Input::MouseButton::MOUSE_MIDDLE;
                     break;
                 case WM_RBUTTONDOWN:
                 case WM_RBUTTONUP:
-                    mouse_button = Input::MouseButton::MOUSE_RIGHT;
+                    mouse_button = ::Pastel::Input::MouseButton::MOUSE_RIGHT;
                     break;
             }
 
@@ -304,12 +295,9 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             // A nonzero return value to indicate the program handles erasing the background.
             return 1;
         case WM_CLOSE: {
-            const WORD system_language = 0;
-            if (MessageBoxEx(hwnd, "Quit program?", "Quit", MB_OKCANCEL, system_language) == IDOK) {
-                state->on_window_close();
-                state->running = false;
-                DestroyWindow(hwnd);
-            }
+            state->on_window_close();
+            state->running = false;
+            DestroyWindow(hwnd);
             return 0;
         }
         case WM_DESTROY:
