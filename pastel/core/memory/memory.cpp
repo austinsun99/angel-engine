@@ -37,7 +37,9 @@ void deinit_memory() {
 void record_mem_alloc(MemoryCategory memtype, std::size_t size) {
 #if defined(PASTEL_DEBUG)
     if (memtype == MEMORY_CATEGORY_UNKNOWN) {
-        CORE_LOG_WARN("Allocating memory with category: unknown. Consider categorizing the memory allocation.")
+        CORE_LOG_WARN(
+            "Allocating %d bytes of memory with category: unknown. Consider categorizing the memory allocation.",
+            size)
     }
     memory_allocations[memtype] += size;
 #else
@@ -49,7 +51,9 @@ void record_mem_alloc(MemoryCategory memtype, std::size_t size) {
 void record_mem_dealloc(MemoryCategory memtype, std::size_t size) {
 #if defined(PASTEL_DEBUG)
     if (memtype == MEMORY_CATEGORY_UNKNOWN) {
-        CORE_LOG_WARN("Deallocating memory with category: unknown. Consider categorizing the memory allocation.")
+        CORE_LOG_WARN(
+            "Deallocating %d bytes of memory with category: unknown. Consider categorizing the memory allocation.",
+            size)
     }
     memory_allocations[memtype] -= size;
 #else

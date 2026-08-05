@@ -1,10 +1,9 @@
 #pragma once
 
-// @todo: place into namespace
-
 #include <cstdint>
 
 #include "defines.h"
+#include "pastel_types.h"
 
 namespace Pastel {
 // @temp PASTEL_API
@@ -17,7 +16,7 @@ class Input {
 
     void process_key(Keycode key, bool pressed);
     void process_mouse_button(MouseButton button, bool pressed);
-    void process_mouse_position(uint16_t x, uint16_t y);
+    void process_mouse_position(int x, int y);
     void process_mouse_wheel(int delta);
 
     // @todo: for debugging purposes only. remove.
