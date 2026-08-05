@@ -6,6 +6,24 @@
 #    define PASTEL_RELEASE 1
 #endif
 
+#if defined(__clang__)
+#    define PASTEL_COMPILER_CLANG 1
+#elif defined(__GNUC__)
+#    define PASTEL_COMPILER_GNU 1
+#elif defined(_MSC_VER)
+#    define PASTEL_COMPILER_MSVC 1
+#endif
+
+#ifndef PASTEL_FORCE_INLINE
+#    if defined(PASTEL_COMPILER_GNU)
+#        define PASTEL_FORCE_INLINE __attribute__((always_inline)) inline
+#    elif defined(PASTEL_COMPILER_MSVC)
+#        define PASTEL_FORCE_INLINE __forceinline
+#    else
+#        define PASTEL_FORCE_INLINE inline
+#    endif
+#endif
+
 /**
  * PLATFORM DETECTION
  */
@@ -48,6 +66,8 @@ constexpr bool platform_linux =
 #if defined(PLATFORM_ANDROID) || defined(PLATFORM_MACOS)
 #    error "Platform not supported"
 #endif
+
+#define PASTEL_STATIC_ASSERT(expr, msg) static_assert(expr, msg);
 
 /**
  * EXPORTS

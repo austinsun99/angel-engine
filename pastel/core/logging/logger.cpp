@@ -4,10 +4,9 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <iostream>
 #include "core/io/terminal_colours.h"
 #include "core/platform/platform.h"
-
-static Pastel::WindowState *window_state;
 
 namespace Pastel {
 bool log_assert_fail(const char *expr, const char *msg, const char *file, int line) {
@@ -26,22 +25,21 @@ bool log_assert_fail(const char *expr, const char *msg, const char *file, int li
                   file,
                   line,
                   assertion_msg);
-    window_state->print_terminal(msg_buf, fg);
-    window_state->clear_terminal_colour();
+    Platform::print_terminal(msg_buf, fg);
+    Platform::clear_terminal_colour();
     return true;
 }
 }  // namespace Pastel
 
 namespace Pastel::Logger {
 
-void logger_init(WindowState *const state) {
-    if (!state->console_is_initialized()) return;
-    window_state = state;
+void logger_init() {
 }
 
 void log_output(LogLevel level, const char *fmt, const char *file, int line, ...) {
     (void)file;
     (void)line;
+
     Io::TerminalColour bg = level == LOG_LEVEL_FATAL ? Io::TERMINAL_COLOUR_RED : Io::TERMINAL_COLOUR_NONE;
     Io::TerminalColour fg;
     const char *level_prefix;
@@ -82,7 +80,7 @@ void log_output(LogLevel level, const char *fmt, const char *file, int line, ...
     std::vsnprintf(msg_buf2, sizeof(msg_buf2), msg_buf, arg_ptr);
     va_end(arg_ptr);
 
-    window_state->print_terminal(msg_buf2, fg, bg);
+    Platform::print_terminal(msg_buf2, fg, bg);
 }
 
 }  // namespace Pastel::Logger

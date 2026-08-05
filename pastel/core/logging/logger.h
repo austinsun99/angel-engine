@@ -15,7 +15,7 @@ enum LogLevel {
     LOG_LEVEL_TRACE,
 };
 
-void logger_init(WindowState *const state);
+void logger_init();
 void log_output(LogLevel level, const char *fmt, const char *file, int line, ...);
 
 #define LOG_FATAL_ENABLED 1
