@@ -1,11 +1,118 @@
 #include "vulkan_device.h"
 
 #include <vulkan/vulkan_core.h>
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <format>
+#include <unordered_set>
 #include <vector>
+#include "core/logging/asserts.h"
+#include "core/logging/logger.h"
+#include "renderer/vulkan_instance.h"
 #include "renderer/vulkan_utils.h"
 
 namespace Pastel::Renderer::Vulkan {
+
+void VulkanDevice::setup_device(VkInstance const &instance,
+                                VkSurfaceKHR const &surface,
+                                VkAllocationCallbacks *const &custom_allocator,
+                                VkPhysicalDevice const &physical_device,
+                                VulkanPhysicalDeviceRequirements const &device_requirements,
+                                VulkanPhysicalDeviceProperties const &device_properties) {
+    _vulkan_instance     = instance;
+    _vulkan_surface      = surface;
+    _device_requirements = device_requirements;
+    _custom_allocator    = custom_allocator;
+    _physical_device     = physical_device;
+    _device_properties   = device_properties;
+    setup                = true;
+
+    std::string device_info_str;
+    format_device_info_str(device_info_str);
+    CORE_LOG_INFO(device_info_str.c_str());
+}
+
+bool VulkanDevice::create_logical_device() {
+    if (!setup) {
+        CORE_LOG_ERROR("(Vulkan-Device) Must setup device first")
+        return false;
+    }
+    CORE_LOG_INFO("(Vulkan-Device) Creating logical device...")
+    CORE_LOG_INFO("(Vulkan-Device) Creating device queues...")
+
+    const std::vector<float> queue_priorities{0.5f, 1.0f};
+
+    std::unordered_set<u32> queue_family_indices;
+    std::vector<VkDeviceQueueCreateInfo> queue_create_info;
+    queue_create_info.clear();
+
+    if (_device_requirements.require_graphics) queue_family_indices.insert(_device_properties.graphics_queue_index);
+    if (_device_requirements.require_transfer) queue_family_indices.insert(_device_properties.transfer_queue_index);
+    if (_device_requirements.require_compute) queue_family_indices.insert(_device_properties.compute_queue_index);
+    if (_device_requirements.require_present) queue_family_indices.insert(_device_properties.present_queue_index);
+
+    for (u32 const &index : queue_family_indices) {
+        const u32 max_queue_creation_count =
+            _device_properties.device_queues[index].properties.queueFamilyProperties.queueCount;
+        const u32 actual_queue_creation_count = std::min(2u, max_queue_creation_count);
+        PASTEL_ASSERT(queue_priorities.size() >= actual_queue_creation_count);
+
+        VkDeviceQueueCreateInfo queue_info = {
+            .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .pNext            = nullptr,
+            .flags            = 0,
+            .queueFamilyIndex = index,
+            .queueCount       = actual_queue_creation_count,
+            .pQueuePriorities = &queue_priorities[0],
+        };
+        queue_create_info.push_back(queue_info);
+        CORE_LOG_DEBUG("(Vulkan-Device) Creating %d queues for queue family %d", actual_queue_creation_count, index);
+    }
+
+    VkPhysicalDeviceFeatures2 device_features_2{};
+    VkPhysicalDeviceVulkan11Features device_features_11{};
+    VkPhysicalDeviceVulkan12Features device_features_12{};
+    VkPhysicalDeviceVulkan13Features device_features_13{};
+    VkPhysicalDeviceVulkan14Features device_features_14{};
+    device_features_14.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
+    device_features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    device_features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    device_features_11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
+    device_features_2.sType  = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    device_features_14.pNext = nullptr;
+    device_features_13.pNext = &device_features_14;
+    device_features_12.pNext = &device_features_13;
+    device_features_11.pNext = &device_features_12;
+    device_features_2.pNext  = &device_features_11;
+
+    if (_device_requirements.dynamic_rendering) {
+        PASTEL_ASSERT(_device_properties.device_features_13.dynamicRendering == VK_TRUE);
+        device_features_13.dynamicRendering = VK_TRUE;
+        CORE_LOG_DEBUG("(Vulkan-Device) Enabling dynamic rendering");
+    }
+
+    VkDeviceCreateInfo device_create_info{
+        .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext                   = &device_features_2,
+        .flags                   = 0,
+        .queueCreateInfoCount    = static_cast<uint32_t>(queue_create_info.size()),
+        .pQueueCreateInfos       = &queue_create_info[0],
+        .enabledLayerCount       = 0,
+        .ppEnabledLayerNames     = nullptr,
+        .enabledExtensionCount   = static_cast<uint32_t>(_device_requirements.required_extensions.size()),
+        .ppEnabledExtensionNames = &_device_requirements.required_extensions[0],
+        .pEnabledFeatures        = nullptr,
+    };
+    vkCreateDevice(_physical_device, &device_create_info, _custom_allocator, &_device);
+    CORE_LOG_INFO("(Vulkan-Device) Successfully created logical device.")
+
+    return true;
+}
+
+void VulkanDevice::destroy_device() {
+    vkDestroyDevice(_device, _custom_allocator);
+}
 
 bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices) {
     u32 physical_device_count;
@@ -98,11 +205,15 @@ bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
     // family index as the graphics queue. The present queue follows the aforementioned rule iff the graphics queue does
     // not have present.
     for (u64 i = 0; i < out_properties.device_queues.size(); ++i) {
+        // @hack: since we set queue index none to be UINT32_MAX, we check that the index is not actaully UINT32_MAX.
+        // This should quite litearlly never happen.
+        PASTEL_ASSERT(i != QUEUE_INDEX_NONE)
+
         int const &queue_family_index           = i;
         VkQueueFamilyProperties const &property = out_properties.device_queues[i].properties.queueFamilyProperties;
 
         VkBool32 present_support;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, queue_family_index, surface, &present_support);
+        VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceSupportKHR(device, queue_family_index, surface, &present_support));
 
         // @: consider placing this information into the vulkan queue
         bool has_graphics = (property.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
@@ -123,399 +234,112 @@ bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
 
         // We set the present queue as separate from the graphics queue iff the present queue exists and has not been
         // set yet.
-        if (has_present && out_properties.present_queue_index != UINT32_MAX)
+        if (has_present && out_properties.present_queue_index != QUEUE_INDEX_NONE)
             out_properties.present_queue_index = queue_family_index;
     }
 
+    if (out_properties.graphics_queue_index != QUEUE_INDEX_NONE)
+        out_properties.queue_families_in_use.insert(out_properties.graphics_queue_index);
+
+    if (out_properties.transfer_queue_index != QUEUE_INDEX_NONE)
+        out_properties.queue_families_in_use.insert(out_properties.transfer_queue_index);
+
+    if (out_properties.present_queue_index != QUEUE_INDEX_NONE)
+        out_properties.queue_families_in_use.insert(out_properties.present_queue_index);
+
+    if (out_properties.compute_queue_index != QUEUE_INDEX_NONE)
+        out_properties.queue_families_in_use.insert(out_properties.compute_queue_index);
+
+    // Query for device extensions
+    u32 device_extension_count = 0;
+    VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, nullptr));
+    out_properties.extension_properties.resize(device_extension_count);
+    VK_CHECK_RESULT(vkEnumerateDeviceExtensionProperties(device,
+                                                         nullptr,
+                                                         &device_extension_count,
+                                                         &out_properties.extension_properties[0]));
     return true;
 }
 
 bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties const &properties,
-                                               VulkanPhysicalDeviceRequirements const &requirements) {
-    return true;
+                                               VulkanPhysicalDeviceRequirements const &requirements,
+                                               VulkanCreateInstanceInfo const &instance_requirements) {
+    u32 const &api_version = properties.device_properties.properties.apiVersion;
+    bool device_meets_api_version_requirements =
+        VK_API_VERSION_MAJOR(api_version) >= instance_requirements.min_version_major &&
+        VK_API_VERSION_MINOR(api_version) >= instance_requirements.min_version_minor &&
+        VK_API_VERSION_PATCH(api_version) >= instance_requirements.min_version_patch;
+
+    bool device_type_requirement_met        = false;
+    VkPhysicalDeviceType const &device_type = properties.device_properties.properties.deviceType;
+    if (requirements.allow_dedicated && device_type == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+        device_type_requirement_met = true;
+    if (requirements.allow_integrated && device_type == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+        device_type_requirement_met = true;
+    if (device_type_requirement_met) CORE_LOG_DEBUG("(Vulkan-Device) Device meets device type requirements.")
+
+    bool device_meets_feature_requirements = true;
+    if (requirements.dynamic_rendering && vkb_to_b(!properties.device_features_13.dynamicRendering)) {
+        CORE_LOG_DEBUG("(Vulkan-Device) Dynamic rendering is required but is not found on device.")
+        device_meets_feature_requirements = false;
+    }
+    if (device_meets_feature_requirements) CORE_LOG_DEBUG("(Vulkan-Device) Device meets feature requirements.")
+
+    bool device_meets_queue_requirements =
+        !(requirements.require_graphics && properties.graphics_queue_index == QUEUE_INDEX_NONE) &&
+        !(requirements.require_compute && properties.compute_queue_index == QUEUE_INDEX_NONE) &&
+        !(requirements.require_transfer && properties.transfer_queue_index == QUEUE_INDEX_NONE) &&
+        !(requirements.require_present && properties.present_queue_index == QUEUE_INDEX_NONE);
+    if (device_meets_queue_requirements) CORE_LOG_DEBUG("(Vulkan-Device) Device meets queue family requirements.")
+
+    bool has_swapchain_support = properties.surface_present_modes.size() > 0 && properties.surface_formats.size() > 0;
+    if (has_swapchain_support) CORE_LOG_DEBUG("(Vulkan-Device) Device meets swapchain requirements.")
+
+    bool has_required_extensions = true;
+    for (const char *const &require : requirements.required_extensions) {
+        CORE_LOG_DEBUG("(Vulkan-Device) Checking if device has required extension %s", require)
+        bool found = false;
+        for (VkExtensionProperties const &extension : properties.extension_properties) {
+            if (std::strcmp(extension.extensionName, require) == 0) {
+                found = true;
+                CORE_LOG_DEBUG("(Vulkan-Device) Extension %s found", require)
+            }
+        }
+        if (!found) {
+            has_required_extensions = false;
+            break;
+        }
+    }
+
+    return device_meets_api_version_requirements && device_type_requirement_met && device_meets_feature_requirements &&
+           device_meets_queue_requirements && has_swapchain_support && has_required_extensions;
 }
-//
-// static VkDeviceQueueCreateInfo get_queue_create_info(VulkanDeviceQueue const &queue);
-//
-// VulkanDevice::VulkanDevice() {
-// }
-//
-// VulkanDevice::~VulkanDevice() {
-// }
-//
-// void VulkanDevice::init_device(VkInstance *vulkan_instance,
-//                                VkSurfaceKHR *vulkan_surface,
-//                                VkAllocationCallbacks *custom_allocator) {
-//     _vulkan_instance  = vulkan_instance;
-//     _vulkan_surface   = vulkan_surface;
-//     _custom_allocator = custom_allocator;
-// }
-//
-// void VulkanDevice::destroy_device() {
-//     vkDestroyDevice(_device, _custom_allocator);
-// }
-//
-// bool VulkanDevice::query_for_physical_device(VulkanPhysicalDeviceRequirements const &device_requirements) {
-//     (void)device_requirements;
-//
-//     u32 physical_device_count;
-//     std::vector<VkPhysicalDevice> physical_devices;
-//     VK_CHECK_RESULT(vkEnumeratePhysicalDevices(*_vulkan_instance, &physical_device_count, nullptr));
-//
-//     physical_devices.resize(physical_device_count);
-//     if (physical_device_count == 0) {
-//         CORE_LOG_FATAL("(Vulkan-device) Could not find any devices for vulkan.")
-//         return false;
-//     }
-//
-//     VK_CHECK_RESULT(vkEnumeratePhysicalDevices(*_vulkan_instance, &physical_device_count, &physical_devices[0]));
-//
-//     bool device_found = false;
-//     CORE_LOG_INFO("(Vulkan-device) Enumerating (%d) and choosing a physical device", physical_device_count)
-//     for (u64 i = 0; i < physical_device_count; ++i) {
-//         if (physical_device_meets_requirements(physical_devices[i], device_requirements)) {
-//             device_found     = true;
-//             _physical_device = physical_devices[i];
-//             break;
-//         }
-//     }
-//     if (device_found) {
-//         CORE_LOG_INFO("(Vulkan-device) Physical device found");
-//         PASTEL_ASSERT(_physical_device != VK_NULL_HANDLE)
-//     } else {
-//         CORE_LOG_ERROR("(Vulkan-device) Failed to find physical device with requirements")
-//         return false;
-//     }
-//
-//     // @todo: consider separating filling out device details, then checking whether the device meets requirements.
-//
-//     // Query memory properties
-//     _physical_device_memory_properties = {
-//         .sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
-//         .pNext            = nullptr,
-//         .memoryProperties = {},
-//     };
-//     vkGetPhysicalDeviceMemoryProperties2(_physical_device, &_physical_device_memory_properties);
-//
-//     // Property device features
-//     _device_features_14.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
-//     _device_features_14.pNext = nullptr;
-//
-//     _device_features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-//     _device_features_13.pNext = &_device_features_14;
-//
-//     _device_features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-//     _device_features_12.pNext = &_device_features_13;
-//
-//     _device_features_11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-//     _device_features_11.pNext = &_device_features_12;
-//
-//     _device_features_2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-//     _device_features_2.pNext = &_device_features_11;
-//     vkGetPhysicalDeviceFeatures2(_physical_device, &_device_features_2);
-//
-//     if (device_requirements.dynamic_rendering && !_device_features_13.dynamicRendering) {
-//         CORE_LOG_ERROR("(Vulkan-device) Dynamic Rendering not supported");
-//         return false;
-//     } else if (device_requirements.dynamic_rendering) {
-//         CORE_LOG_DEBUG("Dynamic Rendering supported");
-//     }
-//
-//     CORE_LOG_INFO("(Vulkan) Found device that meets requirement. Displaying device info")
-//
-//     auto const &properties = _physical_device_properties.properties;
-//     // u64 api_version_msg_size;
-//     // const char *api_version = printf_alloc_vk_api_version(properties.apiVersion, &api_version_msg_size);
-//     //
-//     // u64 driver_version_msg_size;
-//     // const char *driver_version = printf_alloc_vk_api_version(properties.driverVersion, &driver_version_msg_size);
-//     //
-//     // const char *device_type_str = physical_device_type_to_str(properties.deviceType);
-//
-//     std::string device_info_str = std::string();
-//
-//     device_info_str.append(std::format("\n\nDevice ({}):", properties.deviceName));
-//     device_info_str.append("\nQueue Family Info:\n");
-//     if (_graphics_queue.active)
-//         device_info_str.append(std::format("Graphics Queue Index: {}\n", _graphics_queue.queue_family_index));
-//     if (_transfer_queue.active)
-//         device_info_str.append(std::format("Transfer Queue Index: {}\n", _transfer_queue.queue_family_index));
-//     if (_present_queue.active)
-//         device_info_str.append(std::format("Present Queue Index: {}\n", _present_queue.queue_family_index));
-//     if (_compute_queue.active)
-//         device_info_str.append(std::format("Compute Queue Index: {}\n", _compute_queue.queue_family_index));
-//     CORE_LOG_INFO(device_info_str.c_str());
-//
-//     return true;
-// }
-//
-// bool VulkanDevice::create_logical_device(VulkanPhysicalDeviceRequirements const &device_requirements) {
-//     std::vector<VkDeviceQueueCreateInfo> queue_create_info;
-//     std::unordered_set<int> unique_queue_family_indices;
-//     if (device_requirements.require_graphics) {
-//         queue_create_info.push_back(get_queue_create_info(_graphics_queue));
-//         unique_queue_family_indices.insert(_graphics_queue.queue_family_index);
-//     }
-//     if (device_requirements.require_transfer &&
-//         !unique_queue_family_indices.contains(_transfer_queue.queue_family_index)) {
-//         queue_create_info.push_back(get_queue_create_info(_transfer_queue));
-//         unique_queue_family_indices.insert(_transfer_queue.queue_family_index);
-//     }
-//     if (device_requirements.require_present &&
-//         !unique_queue_family_indices.contains(_present_queue.queue_family_index)) {
-//         queue_create_info.push_back(get_queue_create_info(_present_queue));
-//         unique_queue_family_indices.insert(_present_queue.queue_family_index);
-//     }
-//     if (device_requirements.require_compute &&
-//         !unique_queue_family_indices.contains(_compute_queue.queue_family_index)) {
-//         queue_create_info.push_back(get_queue_create_info(_compute_queue));
-//         unique_queue_family_indices.insert(_compute_queue.queue_family_index);
-//     }
-//
-//     VkPhysicalDeviceFeatures2 enabled_features_2 = {
-//         .sType    = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-//         .pNext    = nullptr,
-//         .features = {},
-//     };
-//
-//     VkDeviceCreateInfo device_create_info = {
-//         .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-//         .pNext                   = &enabled_features_2,
-//         .flags                   = 0,
-//         .queueCreateInfoCount    = static_cast<uint32_t>(queue_create_info.size()),
-//         .pQueueCreateInfos       = &queue_create_info[0],
-//         .enabledLayerCount       = 0,        // deprecated. must be 0
-//         .ppEnabledLayerNames     = nullptr,  // deprecated. must be 0
-//         .enabledExtensionCount   = static_cast<uint32_t>(device_requirements.required_extensions.size()),
-//         .ppEnabledExtensionNames = &device_requirements.required_extensions[0],
-//         .pEnabledFeatures        = nullptr,
-//     };
-//     VK_CHECK_RESULT(vkCreateDevice(_physical_device, &device_create_info, _custom_allocator, &_device));
-//     CORE_LOG_INFO("(Vulkan) Successfully created logical device.")
-//
-//     std::string device_creation_info;
-//     device_creation_info.append("\n(Vulkan) Device creation info:\n");
-//     device_creation_info.append(std::format("Number of queues: {}\n", queue_create_info.size()));
-//     device_creation_info.append("Enabled Extensions:\n");
-//     for (const char *const &extension_name : device_requirements.required_extensions) {
-//         device_creation_info.append(std::format("-- {}\n", extension_name));
-//     }
-//     device_creation_info.append("\n");
-//
-//     CORE_LOG_INFO(device_creation_info.c_str());
-//     return true;
-// }
-//
-// bool VulkanDevice::physical_device_meets_requirements(VkPhysicalDevice const &device,
-//                                                       VulkanPhysicalDeviceRequirements const &requirements) {
-//     _physical_device_properties = {
-//         .sType      = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-//         .pNext      = nullptr,
-//         .properties = {},
-//     };
-//     vkGetPhysicalDeviceProperties2(device, &_physical_device_properties);
-//     const bool device_meets_device_type_requirements =
-//         (requirements.allow_dedicated &&
-//          _physical_device_properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) ||
-//         (requirements.allow_integrated &&
-//          _physical_device_properties.properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
-//
-//     if (!device_meets_device_type_requirements) {
-//         CORE_LOG_DEBUG("(Vulkan-Device) Device failed to meet device type requirements")
-//         return false;
-//     } else {
-//         CORE_LOG_INFO("(Vulkan-Device) Device meets device type requirements")
-//     }
-//
-//     // Query for queue family properties
-//     u32 queue_family_properties_count = 0;
-//     vkGetPhysicalDeviceQueueFamilyProperties2(device, &queue_family_properties_count, nullptr);
-//     _queue_family_properties.assign(queue_family_properties_count,
-//                                     VkQueueFamilyProperties2{
-//                                         .sType                 = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,
-//                                         .pNext                 = nullptr,
-//                                         .queueFamilyProperties = {},
-//                                     });
-//     vkGetPhysicalDeviceQueueFamilyProperties2(device, &queue_family_properties_count, &_queue_family_properties[0]);
-//
-//     //
-//     // Query for queue families and check if they meet queue family requirements
-//     //
-//     std::string queue_info_text;
-//     queue_info_text.append("\n--- Queue family queue information ---\n")
-//         .append("N: number of queues\n")
-//         .append("G: Supports graphics\n")
-//         .append("C: Supports compute\n")
-//         .append("T: Supports transfer\n")
-//         .append("P: Supports present\n");
-//     CORE_LOG_DEBUG(queue_info_text.data());
-//     CORE_LOG_DEBUG("    | N | G | C | T | P ");
-//
-//     for (u32 i = 0; i < queue_family_properties_count; ++i) {
-//         VkQueueFamilyProperties const &property = _queue_family_properties[i].queueFamilyProperties;
-//
-//         bool has_graphics = (property.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
-//         bool has_compute  = (property.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0;
-//         bool has_transfer = (property.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0;
-//
-//         VkBool32 supports_surface = VK_FALSE;
-//         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, *_vulkan_surface, &supports_surface);
-//
-//         if (has_graphics && requirements.require_graphics) {
-//             _graphics_queue = {
-//                 .active             = true,
-//                 .queue_family_index = i,
-//                 .queue_count        = property.queueCount,
-//             };
-//             if (supports_surface == VK_TRUE && requirements.require_present) {
-//                 _present_queue = {
-//                     .active             = true,
-//                     .queue_family_index = i,
-//                     .queue_count        = property.queueCount,
-//                 };
-//             }
-//         }
-//
-//         if (has_compute && requirements.require_compute) {
-//             _compute_queue = {
-//                 .active             = true,
-//                 .queue_family_index = i,
-//                 .queue_count        = property.queueCount,
-//             };
-//         }
-//
-//         if (has_transfer && requirements.require_transfer) {
-//             _transfer_queue = {
-//                 .active             = true,
-//                 .queue_family_index = i,
-//                 .queue_count        = property.queueCount,
-//             };
-//         }
-//
-//         if (!_present_queue.active && supports_surface && requirements.require_present) {
-//             _present_queue = {
-//                 .active             = true,
-//                 .queue_family_index = i,
-//                 .queue_count        = property.queueCount,
-//             };
-//         }
-//
-//         CORE_LOG_DEBUG("# %d | %d | %d | %d | %d | %d ",
-//                        i + 1,
-//                        property.queueCount,
-//                        has_graphics,
-//                        has_compute,
-//                        has_transfer,
-//                        supports_surface == VK_TRUE ? true : false);
-//     }
-//
-//     const bool device_meets_queue_family_requirements = !(requirements.require_graphics && !_graphics_queue.active)
-//     &&
-//                                                         !(requirements.require_compute && !_compute_queue.active) &&
-//                                                         !(requirements.require_transfer && !_transfer_queue.active)
-//                                                         &&
-//                                                         !(requirements.require_present && !_present_queue.active);
-//     if (!device_meets_queue_family_requirements) {
-//         CORE_LOG_DEBUG("(Vulkan-Device) Device does not meet queue family requirements.")
-//         return false;
-//     } else {
-//         CORE_LOG_DEBUG("(Vulkan-Device) Device queue family requirements met.")
-//     }
-//
-//     u32 extension_count;
-//     std::vector<VkExtensionProperties> extension_properties;
-//     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
-//     extension_properties.resize(extension_count);
-//     vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, &extension_properties[0]);
-//
-//     for (const char *const &extension_name : requirements.required_extensions) {
-//         bool has_extension = false;
-//         for (VkExtensionProperties const &extension_property : extension_properties) {
-//             if (std::strcmp(extension_name, extension_property.extensionName) == 0) {
-//                 has_extension = true;
-//                 break;
-//             }
-//         }
-//
-//         if (!has_extension) {
-//             CORE_LOG_DEBUG("(Vulkan) Extension %s required but was not found. Device does not meet requirements.",
-//                            extension_name);
-//             return false;
-//         } else {
-//             CORE_LOG_DEBUG("(Vulkan) Required extension %s found on device.", extension_name)
-//         }
-//     }
-//
-//     CORE_LOG_DEBUG("(Vulkan) Device meets extension requirements")
-//     if (!query_for_device_swapchain_support(device)) {
-//         CORE_LOG_DEBUG("(Vulkan-Device) Device does not have proper swapchain support")
-//     }
-//
-//     return true;
-// }
-//
-// bool VulkanDevice::query_for_device_swapchain_support(VkPhysicalDevice const &device) {
-//     VkPhysicalDeviceSurfaceInfo2KHR surface_info = {
-//         .sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
-//         .pNext   = nullptr,
-//         .surface = *_vulkan_surface,
-//     };
-//
-//     _surface_capabilities = {.sType               = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR,
-//                              .pNext               = nullptr,
-//                              .surfaceCapabilities = {}};
-//     VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceCapabilities2KHR(device, &surface_info, &_surface_capabilities));
-//
-//     u32 surface_format_count;
-//     VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceFormats2KHR(device, &surface_info, &surface_format_count, nullptr));
-//
-//     if (surface_format_count != 0) {
-//         _formats.resize(surface_format_count);
-//         for (u32 i = 0; i < surface_format_count; ++i) {
-//             _formats[i] = {.sType = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR, .pNext = nullptr, .surfaceFormat = {}};
-//         }
-//         VK_CHECK_RESULT(
-//             vkGetPhysicalDeviceSurfaceFormats2KHR(device, &surface_info, &surface_format_count, &_formats[0]));
-//     }
-//
-//     u32 present_modes_count;
-//     VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device, *_vulkan_surface, &present_modes_count,
-//     nullptr)); if (present_modes_count != 0) {
-//         _present_modes.resize(present_modes_count);
-//         VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device,
-//                                                                   *_vulkan_surface,
-//                                                                   &present_modes_count,
-//                                                                   &_present_modes[0]));
-//     }
-//
-//     bool has_swapchain_support = present_modes_count != 0 && surface_format_count != 0;
-//     if (has_swapchain_support) {
-//         CORE_LOG_DEBUG(
-//             "(Vulkan) Device meets swapchain support requirements. Device swapchain info:\nSurface formats "
-//             "(%d)\nPresent modes (%d)",
-//             surface_format_count,
-//             present_modes_count)
-//     }
-//     return has_swapchain_support;
-// }
-//
-// static VkDeviceQueueCreateInfo get_queue_create_info(VulkanDeviceQueue const &queue) {
-//     PASTEL_ASSERT(queue.active);
-//
-//     const int max_queues            = queue.queue_count;
-//     const float queue_priorities[2] = {0.5, 1.0};
-//     const u32 queues_to_use         = static_cast<uint32_t>(std::min(2, max_queues));
-//     const u32 queue_family_index    = static_cast<uint32_t>(queue.queue_family_index);
-//
-//     CORE_LOG_INFO("Creating queue info for queue %d with %d number of queues", queue_family_index, queues_to_use);
-//     return VkDeviceQueueCreateInfo{
-//         .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-//         .pNext            = nullptr,
-//         .flags            = 0,
-//         .queueFamilyIndex = queue_family_index,
-//         .queueCount       = queues_to_use,
-//         .pQueuePriorities = queue_priorities,
-//     };
-// }
+
+void VulkanDevice::format_device_info_str(std::string &str) const {
+    u32 const &api_version = _device_properties.device_properties.properties.apiVersion;
+    u32 const ver_major    = VK_API_VERSION_MAJOR(api_version);
+    u32 const ver_minor    = VK_API_VERSION_MINOR(api_version);
+    u32 const ver_patch    = VK_API_VERSION_PATCH(api_version);
+
+    str.append(std::format("\n[Vulkan Device Info]\n for ({})\n\n",
+                           _device_properties.device_properties.properties.deviceName));
+    str.append(std::format("API Version (major.minor.patch) {}.{}.{}\n", ver_major, ver_minor, ver_patch));
+    str.append("Queue Family Info (index):\n");
+    if (_device_requirements.require_graphics)
+        str.append(std::format("Graphics: {}\n", _device_properties.graphics_queue_index));
+    if (_device_requirements.require_present)
+        str.append(std::format("Present: {}\n", _device_properties.present_queue_index));
+    if (_device_requirements.require_transfer)
+        str.append(std::format("Transfer: {}\n", _device_properties.transfer_queue_index));
+    if (_device_requirements.require_compute)
+        str.append(std::format("Compute: {}\n", _device_properties.compute_queue_index));
+
+    str.append("\nDevice Memory Properties:\n");
+    VkPhysicalDeviceMemoryProperties const &memory_properties = _device_properties.memory_properties.memoryProperties;
+    for (u64 i = 0; i < memory_properties.memoryHeapCount; ++i) {
+        str.append(std::format("Heap {}: {} MB\n",i, _device_properties.memory_properties.memoryProperties.memoryHeaps[i].size / 1024 / 1024));
+    }
+    str.append("\n");
+}
 
 }  // namespace Pastel::Renderer::Vulkan

@@ -2,8 +2,12 @@
 
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "pastel_types.h"
+#include "renderer/vulkan_instance.h"
 namespace Pastel::Renderer::Vulkan {
 
 struct VulkanDeviceQueue {
@@ -28,17 +32,19 @@ struct VulkanPhysicalDeviceRequirements {
     };
 };
 
+#define QUEUE_INDEX_NONE UINT32_MAX
 struct VulkanPhysicalDeviceProperties {
     std::vector<VulkanDeviceQueue> device_queues;
+    std::unordered_set<int> queue_families_in_use;
 
     // UINT32_MAX indicates the queue does not exist
-    u32 graphics_queue_index = UINT32_MAX;
+    u32 graphics_queue_index = QUEUE_INDEX_NONE;
     // UINT32_MAX indicates the queue does not exist
-    u32 compute_queue_index  = UINT32_MAX;
+    u32 compute_queue_index  = QUEUE_INDEX_NONE;
     // UINT32_MAX indicates the queue does not exist
-    u32 present_queue_index  = UINT32_MAX;
+    u32 present_queue_index  = QUEUE_INDEX_NONE;
     // UINT32_MAX indicates the queue does not exist
-    u32 transfer_queue_index = UINT32_MAX;
+    u32 transfer_queue_index = QUEUE_INDEX_NONE;
 
     VkPhysicalDeviceProperties2 device_properties;
     VkPhysicalDeviceMemoryProperties2 memory_properties;
@@ -52,58 +58,45 @@ struct VulkanPhysicalDeviceProperties {
     VkSurfaceCapabilities2KHR surface_capabilities;
     std::vector<VkSurfaceFormat2KHR> surface_formats;
     std::vector<VkPresentModeKHR> surface_present_modes;
+
+    std::vector<VkExtensionProperties> extension_properties;
 };
 
 class VulkanDevice {
    private:
-    VkInstance *_vulkan_instance;
-    VkSurfaceKHR *_vulkan_surface;
+    VkInstance _vulkan_instance;
+    VkSurfaceKHR _vulkan_surface;
+    VulkanPhysicalDeviceRequirements _device_requirements;
     VkAllocationCallbacks *_custom_allocator;
+    VkPhysicalDevice _physical_device;
+    VulkanPhysicalDeviceProperties _device_properties;
 
-    VkPhysicalDevice _physical_device = VK_NULL_HANDLE;
-    VkDevice _device                  = VK_NULL_HANDLE;
+    bool setup = false;
+    VkDevice _device = VK_NULL_HANDLE;
+    std::unordered_map<int, int> queue_family_to_active_queue_count;
 
-    VulkanDeviceQueue _graphics_queue;
-    VulkanDeviceQueue _compute_queue;
-    VulkanDeviceQueue _present_queue;
-    VulkanDeviceQueue _transfer_queue;
-
-    std::vector<VkQueueFamilyProperties2> _queue_family_properties;
-    VkSurfaceCapabilities2KHR _surface_capabilities;
-    VkPhysicalDeviceProperties2 _physical_device_properties;
-    VkPhysicalDeviceMemoryProperties2 _physical_device_memory_properties;
-
-    VkPhysicalDeviceFeatures2 _device_features_2;
-    VkPhysicalDeviceVulkan11Features _device_features_11;
-    VkPhysicalDeviceVulkan12Features _device_features_12;
-    VkPhysicalDeviceVulkan13Features _device_features_13;
-    VkPhysicalDeviceVulkan14Features _device_features_14;
-
-    std::vector<VkSurfaceFormat2KHR> _formats;
-    std::vector<VkPresentModeKHR> _present_modes;
-
-    bool physical_device_meets_requirements(VkPhysicalDevice const &device,
-                                            VulkanPhysicalDeviceRequirements const &requirements);
+    void format_device_info_str(std::string& str) const;
 
    public:
-    VulkanDevice();
-    ~VulkanDevice();
-    void init_device(VkInstance *vulkan_instance,
-                     VkSurfaceKHR *vulkan_surface,
-                     VkAllocationCallbacks *custom_allocator);
-    void destroy_device();
+    VulkanDevice() = default;
+    ~VulkanDevice() = default;
+    void setup_device(VkInstance const &instance,
+                      VkSurfaceKHR const &surface,
+                      VkAllocationCallbacks *const &custom_allocator,
+                      VkPhysicalDevice const &physical_device,
+                      VulkanPhysicalDeviceRequirements const &device_requirements,
+                      VulkanPhysicalDeviceProperties const &device_properties);
 
-    bool query_for_physical_device(VulkanPhysicalDeviceRequirements const &device_requirements);
-    bool create_logical_device(VulkanPhysicalDeviceRequirements const &device_requirements);
-    bool query_for_device_swapchain_support(VkPhysicalDevice const &device);
+    bool create_logical_device();
+    void destroy_device();
 };
 
-bool vulkan_get_physical_devices(VkInstance const &instance,
-                                        std::vector<VkPhysicalDevice> &out_physical_devices);
+bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices);
 bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
-                                                  VkSurfaceKHR const &surface,
-                                                  VulkanPhysicalDeviceProperties &out_properties);
+                                           VkSurfaceKHR const &surface,
+                                           VulkanPhysicalDeviceProperties &out_properties);
 bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties const &properties,
-                                                      VulkanPhysicalDeviceRequirements const &requirements);
+                                               VulkanPhysicalDeviceRequirements const &requirements,
+                                               VulkanCreateInstanceInfo const &instance_requirements);
 
 }  // namespace Pastel::Renderer::Vulkan

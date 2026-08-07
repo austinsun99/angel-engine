@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <optional>
 #include "core/platform/platform.h"
 #include "renderer/vulkan_device.h"
 namespace Pastel::Renderer::Vulkan {
@@ -12,6 +13,7 @@ class VulkanRenderer {
 
     VkInstance _vulkan_instance;
     VkSurfaceKHR _vulkan_surface;
+    VulkanDevice _vulkan_device;
 
    public:
     VulkanRenderer(Platform::WindowState const &window_state);

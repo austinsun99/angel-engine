@@ -1,6 +1,5 @@
 #include "vulkan_renderer.h"
 #include <vulkan/vulkan_core.h>
-#include "core/logging/asserts.h"
 #include "core/logging/logger.h"
 #include "renderer/vulkan_device.h"
 #include "vulkan_instance.h"
@@ -11,6 +10,9 @@ VulkanRenderer::VulkanRenderer(Platform::WindowState const &window_state) : _win
 }
 
 VulkanRenderer::~VulkanRenderer() {
+    CORE_LOG_INFO("(Vulkan) Destroying vulkan device");
+    _vulkan_device.destroy_device();
+
     CORE_LOG_INFO("(Vulkan) Destroying vulkan surface");
     vkDestroySurfaceKHR(_vulkan_instance, _vulkan_surface, _custom_allocator);
 
@@ -55,16 +57,20 @@ void VulkanRenderer::start() {
     vulkan_get_physical_devices(_vulkan_instance, physical_devices);
 
     VulkanPhysicalDeviceRequirements requirements;
+    VulkanPhysicalDeviceProperties properties;
     VkPhysicalDevice selected_device;
     for (VkPhysicalDevice const &device : physical_devices) {
-        VulkanPhysicalDeviceProperties properties;
         vulkan_get_physical_device_properties(device, _vulkan_surface, properties);
-        if (vulkan_physical_device_meets_requirements(properties, requirements)) {
+        if (vulkan_physical_device_meets_requirements(properties, requirements, create_instance_info)) {
             selected_device = device;
             CORE_LOG_INFO("(Vulkan) Found suitable physical device.")
             break;
         }
     }
-    (void)selected_device;
+
+    _vulkan_device
+        .setup_device(_vulkan_instance, _vulkan_surface, _custom_allocator, selected_device, requirements, properties);
+    _vulkan_device.create_logical_device();
+    // _vulkan_device.create_logical_device();
 }
 }  // namespace Pastel::Renderer::Vulkan
