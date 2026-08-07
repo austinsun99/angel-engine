@@ -117,9 +117,7 @@ bool vulkan_create_instance(VulkanCreateInstanceInfo const &create_info, VkInsta
         .ppEnabledExtensionNames = &extension_names[0],
     };
 
-    if (!VK_CHECK_RESULT(vkCreateInstance(&instance_create_info, create_info.custom_allocator, out_instance))) {
-        return false;
-    };
+    VK_CHECK_RESULT(vkCreateInstance(&instance_create_info, create_info.custom_allocator, out_instance));
     CORE_LOG_INFO("(Vulkan-Instance) Successfully created vulkan instance")
     return true;
 }

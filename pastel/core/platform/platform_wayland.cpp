@@ -1,5 +1,4 @@
 #include "defines.h"
-#include "pastel_types.h"
 #ifdef PLATFORM_LINUX
 
 #    include "xdg-shell-client-protocol.h"
@@ -22,6 +21,8 @@
 #    include <ctime>
 #    include <unistd.h>
 
+#    include <vulkan/vulkan_core.h>
+#    include <vulkan/vulkan_wayland.h>
 #    include <linux/input-event-codes.h>
 #    include <xkbcommon/xkbcommon.h>
 #    include <xkbcommon/xkbcommon-keysyms.h>
@@ -726,6 +727,24 @@ void *WindowState::get_internal_state() {
 
 bool WindowState::console_is_initialized() {
     return console_initialized;
+}
+
+bool WindowState::create_vulkan_surface(VkInstance const &vulkan_instance,
+                                        VkAllocationCallbacks *const &custom_allocator,
+                                        VkSurfaceKHR *out_vulkan_surface) const {
+    const InternalState *internal = static_cast<InternalState *>(internal_state);
+
+    const VkWaylandSurfaceCreateInfoKHR create_info{
+        .sType   = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        .pNext   = nullptr,
+        .flags   = 0,
+        .display = internal->wl_display,
+        .surface = internal->wl_surface,
+    };
+
+    const VkResult result =
+        vkCreateWaylandSurfaceKHR(vulkan_instance, &create_info, custom_allocator, out_vulkan_surface);
+    return result == VK_SUCCESS;
 }
 
 constexpr int terminal_colour_to_code(Io::TerminalColour colour) {

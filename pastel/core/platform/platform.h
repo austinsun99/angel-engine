@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vulkan/vulkan_core.h>
 #include "core/platform/input.h"
 #include "core/io/terminal_colours.h"
 
@@ -38,6 +39,10 @@ class WindowState {
     void on_window_close();
 
     bool console_is_initialized();
+
+    bool create_vulkan_surface(VkInstance const &vulkan_instance,
+                               VkAllocationCallbacks *const &custom_allocator,
+                               VkSurfaceKHR *out_vulkan_surface) const;
 
    private:
     bool console_initialized;
