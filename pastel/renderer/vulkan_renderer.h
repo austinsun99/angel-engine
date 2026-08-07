@@ -13,8 +13,6 @@ class VulkanRenderer {
     VkInstance _vulkan_instance;
     VkSurfaceKHR _vulkan_surface;
 
-    VulkanDevice _vulkan_device;
-
    public:
     VulkanRenderer(Platform::WindowState const &window_state);
     ~VulkanRenderer();

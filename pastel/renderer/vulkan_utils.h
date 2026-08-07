@@ -16,6 +16,14 @@ PASTEL_FORCE_INLINE static bool vulkan_check_result(VkResult result, const char 
     return true;
 }
 
+PASTEL_FORCE_INLINE static bool vkb_to_b(VkBool32 vkb) {
+    return vkb == VK_TRUE ? true : false;
+}
+
+PASTEL_FORCE_INLINE static VkBool32 b_to_vkb(bool b) {
+    return b ? VK_TRUE : VK_FALSE;
+}
+
 #define VK_CHECK_RESULT(result)                                                                         \
     do {                                                                                                \
         if (!::Pastel::Renderer::Vulkan::vulkan_check_result(result, "##result", __FILE__, __LINE__)) { \

@@ -11,8 +11,6 @@ VulkanRenderer::VulkanRenderer(Platform::WindowState const &window_state) : _win
 }
 
 VulkanRenderer::~VulkanRenderer() {
-    _vulkan_device.destroy_device();
-
     CORE_LOG_INFO("(Vulkan) Destroying vulkan surface");
     vkDestroySurfaceKHR(_vulkan_instance, _vulkan_surface, _custom_allocator);
 
@@ -53,12 +51,20 @@ void VulkanRenderer::start() {
         CORE_LOG_INFO("(Vulkan) Successfully obtained vulkan surface.")
     }
 
-    _vulkan_device.init_device(&_vulkan_instance, &_vulkan_surface, _custom_allocator);
+    std::vector<VkPhysicalDevice> physical_devices;
+    vulkan_get_physical_devices(_vulkan_instance, physical_devices);
 
-    VulkanQueryPhysicalDeviceRequirements query_physical_device_requirements{
-        .dynamic_rendering = true,
-    };
-    _vulkan_device.query_for_physical_device(query_physical_device_requirements);
-    _vulkan_device.create_logical_device(query_physical_device_requirements);
+    VulkanPhysicalDeviceRequirements requirements;
+    VkPhysicalDevice selected_device;
+    for (VkPhysicalDevice const &device : physical_devices) {
+        VulkanPhysicalDeviceProperties properties;
+        vulkan_get_physical_device_properties(device, _vulkan_surface, properties);
+        if (vulkan_physical_device_meets_requirements(properties, requirements)) {
+            selected_device = device;
+            CORE_LOG_INFO("(Vulkan) Found suitable physical device.")
+            break;
+        }
+    }
+    (void)selected_device;
 }
 }  // namespace Pastel::Renderer::Vulkan
