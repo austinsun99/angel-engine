@@ -26,7 +26,7 @@ else
 endif
 
 LIBDIRS := 
-LIBS :=
+LIBS := -lvulkan
 
 #
 # --- FIND FILES ---
@@ -121,7 +121,7 @@ $(OBJ_DIR)/%.c.o: %.c
 $(OBJ_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
 	$(info $<...)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -std=c++20 -c $< -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)

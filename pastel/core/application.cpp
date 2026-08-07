@@ -5,6 +5,7 @@
 #include "core/platform/input.h"
 #include "core/platform/platform.h"
 #include "pastel_types.h"
+#include "renderer/vulkan_renderer.h"
 
 namespace Pastel {
 bool application_lifecycle();
@@ -33,8 +34,10 @@ bool application_lifecycle() {
         CORE_LOG_FATAL("Failed to open window")
         return false;
     }
-
     Platform::clear_terminal_colour();
+
+    Renderer::Vulkan::VulkanRenderer renderer = Renderer::Vulkan::VulkanRenderer(window_state);
+    renderer.start();
 
     while (window_state.running) {
         window_state.update();
@@ -42,7 +45,7 @@ bool application_lifecycle() {
             window_state.running = false;
         }
 
-        window_state.input.print_pressed_keys();
+        // window_state.input.print_pressed_keys();
     }
     return true;
 }
