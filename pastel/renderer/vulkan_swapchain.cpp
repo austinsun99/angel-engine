@@ -53,9 +53,9 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
     }
 
     // Query and set minimum image count
-    _image_count = surface_capabilities.minImageCount + 1;
-    if (surface_capabilities.maxImageCount != 0 && _image_count > surface_capabilities.maxImageCount) {
-        _image_count = surface_capabilities.maxImageCount;
+    u32 swapchain_image_count = surface_capabilities.minImageCount + 1;
+    if (surface_capabilities.maxImageCount != 0 && swapchain_image_count > surface_capabilities.maxImageCount) {
+        swapchain_image_count = surface_capabilities.maxImageCount;
     }
 
     // Set sharing mode based on graphics and present queue family index
@@ -80,7 +80,7 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
         .pNext                 = nullptr,
         .flags                 = 0,
         .surface               = _surface,
-        .minImageCount         = _image_count,
+        .minImageCount         = swapchain_image_count,
         .imageFormat           = _selected_surface_format.format,
         .imageColorSpace       = _selected_surface_format.colorSpace,
         .imageExtent           = _current_extent,
@@ -100,8 +100,8 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
 
     u32 image_count = 0;
     VK_CHECK_RESULT(vkGetSwapchainImagesKHR(_device->device(), _handle, &image_count, nullptr));
-    PASTEL_ASSERT(image_count == _image_count);
-    _images.resize(_image_count);
+    PASTEL_ASSERT(swapchain_image_count == image_count)
+    _images.resize(image_count);
     VK_CHECK_RESULT(vkGetSwapchainImagesKHR(_device->device(), _handle, &image_count, &_images[0]));
 
     if (!create_image_views()) {
@@ -113,13 +113,6 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
 
 bool VulkanSwapchain::create_image_views() {
     PASTEL_ASSERT(_images.size() > 0);
-
-    // @todo: customization
-    const int base_miplevel  = 0;
-    const int miplevel_count = 4;
-
-    CORE_LOG_INFO("base miplevel: %u\n", base_miplevel);
-    CORE_LOG_INFO("level count: %u\n", miplevel_count);
 
     _image_views.resize(_images.size());
     VkImageViewCreateInfo view_create_info{
@@ -139,8 +132,9 @@ bool VulkanSwapchain::create_image_views() {
         .subresourceRange =
             {
                 .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel   = base_miplevel,
-                .levelCount     = miplevel_count,
+                // mip level count must be 1 for swapchain images
+                .baseMipLevel   = 0,
+                .levelCount     = 1,
                 .baseArrayLayer = 0,
                 .layerCount     = 1,
             },
@@ -153,6 +147,36 @@ bool VulkanSwapchain::create_image_views() {
 
     CORE_LOG_INFO("(Vulkan-Swapchain) Successfully created %d image views", _image_views.size());
 
+    return true;
+}
+
+bool VulkanSwapchain::destroy_swapchain() {
+    for (VkImageView const &view : _image_views) {
+        vkDestroyImageView(_device->device(), view, _custom_allocator);
+        _image_views.clear();
+    }
+    if (_handle != VK_NULL_HANDLE) {
+        vkDestroySwapchainKHR(_device->device(), _handle, _custom_allocator);
+        _handle = VK_NULL_HANDLE;
+    }
+    return true;
+}
+
+bool VulkanSwapchain::acquire_next_image(u64 timeout,
+                                         VkSemaphore const &image_available_semaphore,
+                                         VkFence const &fence,
+                                         u32 *out_index) const {
+    VkAcquireNextImageInfoKHR info{
+        .sType      = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
+        .pNext      = nullptr,
+        .swapchain  = _handle,
+        .timeout    = timeout,
+        .semaphore  = image_available_semaphore,
+        .fence      = fence,
+        .deviceMask = 1,
+    };
+
+    VK_CHECK_RESULT(vkAcquireNextImage2KHR(_device->device(), &info, out_index));
     return true;
 }
 

@@ -6,6 +6,9 @@
 
 namespace Pastel::Renderer::Vulkan {
 VulkanRenderer::~VulkanRenderer() {
+    CORE_LOG_INFO("(Vulkan) Destroying vulkan swapchain");
+    _swapchain.destroy_swapchain();
+
     CORE_LOG_INFO("(Vulkan) Destroying vulkan device");
     _device.destroy_device();
 

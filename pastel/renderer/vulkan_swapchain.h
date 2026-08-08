@@ -7,12 +7,12 @@ namespace Pastel::Renderer::Vulkan {
 
 class VulkanSwapchain {
    private:
-    VulkanDevice *_device                     = nullptr;
+    VulkanDevice *_device                    = nullptr;
     VkAllocationCallbacks *_custom_allocator = nullptr;
-    VkSurfaceKHR _surface                     = VK_NULL_HANDLE;
+    VkSurfaceKHR _surface                    = VK_NULL_HANDLE;
 
     VkSwapchainKHR _handle = VK_NULL_HANDLE;
-    u32 _image_count;
+
     std::vector<VkImage> _images;
     std::vector<VkImageView> _image_views;
 
@@ -23,20 +23,32 @@ class VulkanSwapchain {
     bool create_image_views();
 
    public:
-    VulkanSwapchain() = default;
+    VulkanSwapchain()  = default;
     ~VulkanSwapchain() = default;
 
     void init(VulkanDevice *const &device,
               VkAllocationCallbacks *const &custom_allocator,
               VkSurfaceKHR const &surface) {
-        _device            = device;
+        _device           = device;
         _custom_allocator = custom_allocator;
-        _surface           = surface;
-        _initialized       = true;
+        _surface          = surface;
+        _initialized      = true;
     };
+
     bool create_swapchain(const u32 framebuffer_width, const u32 framebuffer_height);
     bool destroy_swapchain();
-    void acquire_next_image(u64 timeout, VkSemaphore image_available_semaphore, VkFence fence, u32 *out_index);
+    bool acquire_next_image(u64 timeout,
+                            VkSemaphore const &image_available_semaphore,
+                            VkFence const &fence,
+                            u32 *out_index) const;
+
+    std::vector<VkImage> const &images() const {
+        return _images;
+    }
+
+    std::vector<VkImageView> const &image_views() const {
+        return _image_views;
+    }
 };
 
 }  // namespace Pastel::Renderer::Vulkan
