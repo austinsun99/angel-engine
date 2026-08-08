@@ -35,7 +35,6 @@ struct VulkanPhysicalDeviceRequirements {
 #define QUEUE_INDEX_NONE UINT32_MAX
 struct VulkanPhysicalDeviceProperties {
     std::vector<VulkanDeviceQueue> device_queues;
-    std::unordered_set<int> queue_families_in_use;
 
     // UINT32_MAX indicates the queue does not exist
     u32 graphics_queue_index = QUEUE_INDEX_NONE;
@@ -73,7 +72,8 @@ class VulkanDevice {
 
     bool setup       = false;
     VkDevice _device = VK_NULL_HANDLE;
-    std::unordered_map<int, int> queue_family_to_active_queue_count;
+
+    std::vector<VkQueue> _queues;
 
     void format_device_info_str(std::string &str) const;
 

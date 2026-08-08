@@ -53,9 +53,10 @@ bool VulkanDevice::create_logical_device() {
     if (_device_requirements.require_present) queue_family_indices.insert(_device_properties.present_queue_index);
 
     for (u32 const &index : queue_family_indices) {
-        const u32 max_queue_creation_count =
-            _device_properties.device_queues[index].properties.queueFamilyProperties.queueCount;
-        const u32 actual_queue_creation_count = std::min(2u, max_queue_creation_count);
+        // const u32 max_queue_creation_count =
+        //     _device_properties.device_queues[index].properties.queueFamilyProperties.queueCount;
+        const u32 actual_queue_creation_count = 1;  // @todo: customize? If we do customize, make sure to set the queue
+                                                    // indices below in the get device queues
         PASTEL_ASSERT(queue_priorities.size() >= actual_queue_creation_count);
 
         VkDeviceQueueCreateInfo queue_info = {
@@ -107,8 +108,23 @@ bool VulkanDevice::create_logical_device() {
     vkCreateDevice(_physical_device, &device_create_info, _custom_allocator, &_device);
     CORE_LOG_INFO("(Vulkan-Device) Successfully created logical device.")
 
+    VkDeviceQueueInfo2 queue_info = {
+        .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,
+        .pNext            = nullptr,
+        .flags            = 0,
+        .queueFamilyIndex = 0,
+        .queueIndex       = 0,  // Set to zero since we specified the max number of queues to be 1 above
+    };
+
+    // Obtain the device queues
+    _queues.resize(_device_properties.device_queues.size());
+    for (u32 const &index : queue_family_indices) {
+        queue_info.queueFamilyIndex = index;
+        vkGetDeviceQueue2(_device, &queue_info, &_queues[index]);
+    }
+
     return true;
-}
+}  // namespace Pastel::Renderer::Vulkan
 
 void VulkanDevice::destroy_device() {
     vkDestroyDevice(_device, _custom_allocator);
@@ -238,17 +254,17 @@ bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
             out_properties.present_queue_index = queue_family_index;
     }
 
-    if (out_properties.graphics_queue_index != QUEUE_INDEX_NONE)
-        out_properties.queue_families_in_use.insert(out_properties.graphics_queue_index);
-
-    if (out_properties.transfer_queue_index != QUEUE_INDEX_NONE)
-        out_properties.queue_families_in_use.insert(out_properties.transfer_queue_index);
-
-    if (out_properties.present_queue_index != QUEUE_INDEX_NONE)
-        out_properties.queue_families_in_use.insert(out_properties.present_queue_index);
-
-    if (out_properties.compute_queue_index != QUEUE_INDEX_NONE)
-        out_properties.queue_families_in_use.insert(out_properties.compute_queue_index);
+    // if (out_properties.graphics_queue_index != QUEUE_INDEX_NONE)
+    //     out_properties.queue_families_in_use.insert(out_properties.graphics_queue_index);
+    //
+    // if (out_properties.transfer_queue_index != QUEUE_INDEX_NONE)
+    //     out_properties.queue_families_in_use.insert(out_properties.transfer_queue_index);
+    //
+    // if (out_properties.present_queue_index != QUEUE_INDEX_NONE)
+    //     out_properties.queue_families_in_use.insert(out_properties.present_queue_index);
+    //
+    // if (out_properties.compute_queue_index != QUEUE_INDEX_NONE)
+    //     out_properties.queue_families_in_use.insert(out_properties.compute_queue_index);
 
     // Query for device extensions
     u32 device_extension_count = 0;
@@ -337,7 +353,10 @@ void VulkanDevice::format_device_info_str(std::string &str) const {
     str.append("\nDevice Memory Properties:\n");
     VkPhysicalDeviceMemoryProperties const &memory_properties = _device_properties.memory_properties.memoryProperties;
     for (u64 i = 0; i < memory_properties.memoryHeapCount; ++i) {
-        str.append(std::format("Heap {}: {} MB\n",i, _device_properties.memory_properties.memoryProperties.memoryHeaps[i].size / 1024 / 1024));
+        str.append(
+            std::format("Heap {}: {} MB\n",
+                        i,
+                        _device_properties.memory_properties.memoryProperties.memoryHeaps[i].size / 1024 / 1024));
     }
     str.append("\n");
 }
