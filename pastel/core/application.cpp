@@ -44,7 +44,6 @@ bool application_lifecycle() {
         if (!window_state.pump_window()) {
             window_state.running = false;
         }
-
         renderer.update_start();
 
         // window_state.input.print_pressed_keys();

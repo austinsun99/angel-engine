@@ -14,6 +14,8 @@ namespace Pastel::Renderer::Vulkan {
 
 class VulkanRenderer {
    private:
+    u32 _current_framebuffer_width;
+    u32 _current_framebuffer_height;
     Platform::WindowState const &_window_state;
     VkAllocationCallbacks *_custom_allocator;
 
@@ -23,9 +25,12 @@ class VulkanRenderer {
     VulkanSwapchain _swapchain;
 
     std::vector<VulkanCommandBuffer> _graphics_command_buffers;
-    std::vector<VulkanSyncObject> _sync_objects;
+
+    VulkanSyncObject<FRAMES_IN_FLIGHT> _sync_objects;
 
     u32 _current_frame = 0;
+    bool _should_recreate_swapchain = false;
+
    public:
     VulkanRenderer(Platform::WindowState const &window_state) : _window_state(window_state) {
         _custom_allocator = nullptr;

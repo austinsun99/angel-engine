@@ -10,9 +10,7 @@
 namespace Pastel::Renderer::Vulkan {
 VulkanRenderer::~VulkanRenderer() {
     vkDeviceWaitIdle(_device.device());
-    for (VulkanSyncObject &sync : _sync_objects) {
-        sync.destroy();
-    }
+    _sync_objects.destroy();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan swapchain");
     _swapchain.destroy_swapchain();
@@ -80,38 +78,47 @@ void VulkanRenderer::start() {
     _device.create_logical_device();
     _device.create_graphics_command_pool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
+    _current_framebuffer_width  = _window_state.framebuffer_width();
+    _current_framebuffer_height = _window_state.framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
-    _swapchain.create_swapchain(_window_state.framebuffer_width(), _window_state.framebuffer_height());
+    _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
 
     _graphics_command_buffers.resize(
         _swapchain.images().size(),
         VulkanCommandBuffer(_device.graphics_command_pool(), _device.device(), _custom_allocator));
-    for (auto& buffer : _graphics_command_buffers) {
+    for (auto &buffer : _graphics_command_buffers) {
         buffer.create(VK_COMMAND_BUFFER_LEVEL_PRIMARY);
     }
 
-    _sync_objects.resize(FRAMES_IN_FLIGHT, VulkanSyncObject(_device.device(), _custom_allocator));
-    for (auto &obj : _sync_objects) {
-        // Initially set to signalled so we dont wait on the first frame
-        obj.create(true);
-    }
+    _sync_objects.create(_swapchain.images().size(), true, _device.device(), _custom_allocator);
 }
 
 void VulkanRenderer::update_start() {
-    VulkanCommandBuffer buffer = _graphics_command_buffers[_current_frame];
-    VulkanSyncObject sync_obj  = _sync_objects[_current_frame];
-    sync_obj.wait_fence(UINT64_MAX);
-    sync_obj.reset_fence();
+    // const u32 present_queue_index = _device.device_properties().present_queue_index;
+
+    if (_current_framebuffer_width != _window_state.framebuffer_width()) {
+        _should_recreate_swapchain = true;
+        _current_framebuffer_width = _window_state.framebuffer_width();
+    }
+    if (_current_framebuffer_height != _window_state.framebuffer_height()) {
+        _should_recreate_swapchain  = true;
+        _current_framebuffer_height = _window_state.framebuffer_height();
+    }
+
+    if (_should_recreate_swapchain) {
+        vkDeviceWaitIdle(_device.device());
+        _swapchain.destroy_swapchain();
+        _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
+        _should_recreate_swapchain = false;
+    }
+
+    _sync_objects.wait_fence(_current_frame, UINT64_MAX);
+    _sync_objects.reset_fence(_current_frame);
 
     u32 image_index = 0;
-    _swapchain.acquire_next_image(UINT64_MAX, sync_obj.image_available_sem(), nullptr, &image_index);
+    _swapchain.acquire_next_image(UINT64_MAX, _sync_objects.image_available_sem(_current_frame), nullptr, &image_index);
 
-    const VkClearColorValue clear_colour = {.float32{
-        1.0f,
-        0.0f,
-        0.0f,
-        0.0,
-    }};
+    VulkanCommandBuffer buffer = _graphics_command_buffers[image_index];
 
     const VkImageSubresourceRange subresource_range{
         .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -121,14 +128,69 @@ void VulkanRenderer::update_start() {
         .layerCount     = 1,
     };
 
+    const VkImageMemoryBarrier present_to_clear_barrier{
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext               = nullptr,
+        .srcAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
+        .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image               = _swapchain.images()[image_index],
+        .subresourceRange    = subresource_range,
+    };
+
+    const VkImageMemoryBarrier clear_to_present_barrier{
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .pNext               = nullptr,
+        .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image               = _swapchain.images()[image_index],
+        .subresourceRange    = subresource_range,
+    };
+
+    const VkClearColorValue clear_colour = {.float32{
+        1.0f,
+        _current_framebuffer_width / 4000.0f,
+        _current_framebuffer_height / 4000.0f,
+        0.0,
+    }};
+
     buffer.reset();
     buffer.begin(true, false, false);
+    vkCmdPipelineBarrier(buffer.handle(),
+                         VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0,
+                         0,
+                         nullptr,
+                         0,
+                         nullptr,
+                         1,
+                         &present_to_clear_barrier);
+
     vkCmdClearColorImage(buffer.handle(),
                          _swapchain.images()[image_index],
                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                          &clear_colour,
                          1,
                          &subresource_range);
+
+    vkCmdPipelineBarrier(buffer.handle(),
+                         VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0,
+                         0,
+                         nullptr,
+                         0,
+                         nullptr,
+                         1,
+                         &clear_to_present_barrier);
     buffer.end();
 
     VkPipelineStageFlags stage_flags = {
@@ -139,17 +201,19 @@ void VulkanRenderer::update_start() {
         .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext                = nullptr,
         .waitSemaphoreCount   = 1,
-        .pWaitSemaphores      = &sync_obj.image_available_sem(),
+        .pWaitSemaphores      = &_sync_objects.image_available_sem(_current_frame),
         .pWaitDstStageMask    = &stage_flags,
         .commandBufferCount   = 1,
         .pCommandBuffers      = &buffer.handle(),
         .signalSemaphoreCount = 1,
-        .pSignalSemaphores    = &sync_obj.queue_complete_sem(),
+        .pSignalSemaphores    = &_sync_objects.queue_complete_sem(image_index),
     };
-    vkQueueSubmit(_device.graphics_queue(), 1, &submit_info, sync_obj.fence());
+    vkQueueSubmit(_device.graphics_queue(), 1, &submit_info, _sync_objects.fence(_current_frame));
 
-    VkResult result = _swapchain.present(sync_obj.queue_complete_sem(), image_index);
-    (void)result;
+    VkResult result = _swapchain.present(_sync_objects.queue_complete_sem(image_index), image_index);
+    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR) {
+        _should_recreate_swapchain = true;
+    }
 
     _current_frame++;
     _current_frame %= FRAMES_IN_FLIGHT;

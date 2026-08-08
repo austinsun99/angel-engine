@@ -24,9 +24,6 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
         if (fmt.surfaceFormat.format == VK_FORMAT_R8G8B8A8_SRGB &&
             fmt.surfaceFormat.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
             _selected_surface_format = fmt.surfaceFormat;
-            CORE_LOG_INFO(
-                "(Vulkan-Swapchain) Device supports r8g8b8a8_srgb and colorspace_srgb. Choosing those as format and "
-                "colourspace")
             break;
         }
     }
@@ -69,9 +66,6 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
         sharing_mode = VK_SHARING_MODE_CONCURRENT;
         index_count  = 2;
         family_indices.push_back(dev_properties.present_queue_index);
-        CORE_LOG_INFO(
-            "(Vulkan-Swapchain) Graphics and present belong to separate queue families. Setting sharing mode to "
-            "CONCURRENT")
     }
 
     // Create the swapchain
@@ -159,8 +153,6 @@ bool VulkanSwapchain::create_image_views() {
         view_create_info.image = _images[i];
         VK_CHECK_RESULT(vkCreateImageView(_device->device(), &view_create_info, _custom_allocator, &_image_views[i]));
     }
-
-    CORE_LOG_INFO("(Vulkan-Swapchain) Successfully created %d image views", _image_views.size());
 
     return true;
 }

@@ -1,73 +1,83 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <vector>
 #include "renderer/vulkan_utils.h"
 namespace Pastel::Renderer::Vulkan {
 
+template <u32 frames_in_flight>
 struct VulkanSyncObject {
    private:
-    VkAllocationCallbacks *const& _custom_allocator;
-    VkDevice const &_device;
-    VkFence _fence;
+    VkAllocationCallbacks *_custom_allocator;
+    VkDevice _device;
 
-    VkSemaphore _queue_complete_sem;
-    VkSemaphore _image_available_sem;
+    std::array<VkFence, frames_in_flight> _fences;
+
+    std::array<VkSemaphore, frames_in_flight> _image_available_sems;
+    std::vector<VkSemaphore> _queue_complete_sems;
+
    public:
-    VulkanSyncObject(VkDevice const &device, VkAllocationCallbacks* const& custom_allocator) : _custom_allocator(custom_allocator), _device(device) {
-    }
+    VulkanSyncObject() = default;
 
+    bool create(u32 image_count,
+                bool fences_signaled,
+                VkDevice const &device,
+                VkAllocationCallbacks *const &custom_allocator) {
+        _custom_allocator              = custom_allocator;
+        _device                        = device;
+        const VkFenceCreateFlags flags = fences_signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 
-    bool create(bool signaled) {
-        const VkFenceCreateFlags flags = signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
         VkFenceCreateInfo fence_create_info{
             .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
             .pNext = nullptr,
             .flags = flags,
         };
-        VK_CHECK_RESULT(vkCreateFence(_device, &fence_create_info, _custom_allocator, &_fence));
+        for (VkFence &fence : _fences)
+            VK_CHECK_RESULT(vkCreateFence(_device, &fence_create_info, _custom_allocator, &fence));
 
         const VkSemaphoreCreateInfo sem_create_info{
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             .pNext = nullptr,
             .flags = 0,
         };
-        VK_CHECK_RESULT(vkCreateSemaphore(_device, &sem_create_info, _custom_allocator, &_queue_complete_sem));
-        VK_CHECK_RESULT(vkCreateSemaphore(_device, &sem_create_info, _custom_allocator, &_image_available_sem));
+
+        _queue_complete_sems.resize(image_count);
+        for (VkSemaphore &sem : _queue_complete_sems)
+            VK_CHECK_RESULT(vkCreateSemaphore(_device, &sem_create_info, _custom_allocator, &sem));
+
+        for (VkSemaphore &sem : _image_available_sems)
+            VK_CHECK_RESULT(vkCreateSemaphore(_device, &sem_create_info, _custom_allocator, &sem));
         return true;
     }
 
-    bool wait_fence(u64 timeout) const {
-        VK_CHECK_RESULT(vkWaitForFences(_device, 1, &_fence, VK_TRUE, timeout));
+    bool wait_fence(u32 index, u64 timeout) const {
+        VK_CHECK_RESULT(vkWaitForFences(_device, 1, &_fences[index], VK_TRUE, timeout));
         return true;
     }
 
-    bool reset_fence() const {
-        VK_CHECK_RESULT(vkResetFences(_device, 1, &_fence));
+    bool reset_fence(u32 index) const {
+        VK_CHECK_RESULT(vkResetFences(_device, 1, &_fences[index]));
         return true;
     }
 
     bool destroy() {
-        vkDestroyFence(_device, _fence, _custom_allocator);
-        _fence = VK_NULL_HANDLE;
+        for (VkFence &fence : _fences) vkDestroyFence(_device, fence, _custom_allocator);
 
-        vkDestroySemaphore(_device, _queue_complete_sem, _custom_allocator);
-        vkDestroySemaphore(_device, _image_available_sem, _custom_allocator);
-        _queue_complete_sem = VK_NULL_HANDLE;
-        _image_available_sem = VK_NULL_HANDLE;
-
+        for (VkSemaphore &sem : _queue_complete_sems) vkDestroySemaphore(_device, sem, _custom_allocator);
+        for (VkSemaphore &sem : _image_available_sems) vkDestroySemaphore(_device, sem, _custom_allocator);
         return true;
     }
 
-    VkSemaphore const& image_available_sem() const {
-        return _image_available_sem;
+    VkSemaphore const &image_available_sem(u64 index) const {
+        return _image_available_sems[index];
     }
 
-    VkSemaphore const& queue_complete_sem() const {
-        return _queue_complete_sem;
+    VkSemaphore const &queue_complete_sem(u64 index) const {
+        return _queue_complete_sems[index];
     }
 
-    VkFence const& fence() const {
-        return _fence;
+    VkFence const &fence(u64 index) const {
+        return _fences[index];
     }
 };
 
