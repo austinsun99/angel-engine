@@ -111,6 +111,21 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
     return true;
 }
 
+VkResult VulkanSwapchain::present(VkSemaphore const &render_complete_sem, u32 image_index) {
+    const VkPresentInfoKHR present_info{
+        .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pNext              = nullptr,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores    = &render_complete_sem,
+        .swapchainCount     = 1,
+        .pSwapchains        = &_handle,
+        .pImageIndices      = &image_index,
+        .pResults           = nullptr,
+    };
+
+    return vkQueuePresentKHR(_device->present_queue(), &present_info);
+}
+
 bool VulkanSwapchain::create_image_views() {
     PASTEL_ASSERT(_images.size() > 0);
 

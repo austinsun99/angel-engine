@@ -3,9 +3,8 @@
 #include <vulkan/vulkan_core.h>
 #include <cstdint>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
+#include "core/logging/logger.h"
 #include "pastel_types.h"
 #include "renderer/vulkan_instance.h"
 namespace Pastel::Renderer::Vulkan {
@@ -63,17 +62,21 @@ struct VulkanPhysicalDeviceProperties {
 
 class VulkanDevice {
    private:
+    // @todo: make ptrs
     VkInstance _vulkan_instance;
     VkSurfaceKHR _vulkan_surface;
     VulkanPhysicalDeviceRequirements _device_requirements;
     VkAllocationCallbacks *_custom_allocator;
+
     VkPhysicalDevice _physical_device;
     VulkanPhysicalDeviceProperties _device_properties;
 
-    bool setup       = false;
     VkDevice _device = VK_NULL_HANDLE;
 
     std::vector<VkQueue> _queues;
+    VkCommandPool _graphics_command_pool = VK_NULL_HANDLE;
+
+    bool setup = false;
 
     void format_device_info_str(std::string &str) const;
 
@@ -87,14 +90,34 @@ class VulkanDevice {
                       VulkanPhysicalDeviceRequirements const &device_requirements,
                       VulkanPhysicalDeviceProperties const &device_properties);
 
+    bool create_graphics_command_pool(
+        VkCommandPoolCreateFlags create_flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     bool create_logical_device();
     void destroy_device();
+    void destroy_graphics_command_pool();
 
     VkDevice const &device() const {
         return _device;
     }
+
     VulkanPhysicalDeviceProperties const &device_properties() const {
         return _device_properties;
+    }
+
+    VkCommandPool const &graphics_command_pool() const {
+        if (_graphics_command_pool == VK_NULL_HANDLE) {
+            CORE_LOG_WARN(
+                "(Vulkan-device) retrieving graphics command pool, but command poll has not been created yet.")
+        }
+        return _graphics_command_pool;
+    }
+
+    VkQueue const &graphics_queue() const {
+        return _queues[_device_properties.graphics_queue_index];
+    }
+
+    VkQueue const &present_queue() const {
+        return _queues[_device_properties.present_queue_index];
     }
 };
 

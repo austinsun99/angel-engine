@@ -39,14 +39,16 @@ bool application_lifecycle() {
     Renderer::Vulkan::VulkanRenderer renderer = Renderer::Vulkan::VulkanRenderer(window_state);
     renderer.start();
 
-    // while (window_state.running) {
-    //     window_state.update();
-    //     if (!window_state.pump_window()) {
-    //         window_state.running = false;
-    //     }
-    //
-    //     // window_state.input.print_pressed_keys();
-    // }
+    while (window_state.running) {
+        window_state.update();
+        if (!window_state.pump_window()) {
+            window_state.running = false;
+        }
+
+        renderer.update_start();
+
+        // window_state.input.print_pressed_keys();
+    }
     return true;
 }
 

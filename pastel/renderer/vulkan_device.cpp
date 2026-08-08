@@ -128,6 +128,12 @@ bool VulkanDevice::create_logical_device() {
 
 void VulkanDevice::destroy_device() {
     vkDestroyDevice(_device, _custom_allocator);
+    _device = VK_NULL_HANDLE;
+}
+
+void VulkanDevice::destroy_graphics_command_pool() {
+    vkDestroyCommandPool(_device, _graphics_command_pool, _custom_allocator);
+    _graphics_command_pool = VK_NULL_HANDLE;
 }
 
 bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices) {
@@ -329,6 +335,18 @@ bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties co
 
     return device_meets_api_version_requirements && device_type_requirement_met && device_meets_feature_requirements &&
            device_meets_queue_requirements && has_swapchain_support && has_required_extensions;
+}
+
+bool VulkanDevice::create_graphics_command_pool(VkCommandPoolCreateFlags create_flags) {
+    VkCommandPoolCreateInfo create_info{
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext            = nullptr,
+        .flags            = create_flags,
+        .queueFamilyIndex = _device_properties.graphics_queue_index,
+    };
+
+    VK_CHECK_RESULT(vkCreateCommandPool(_device, &create_info, _custom_allocator, &_graphics_command_pool));
+    return true;
 }
 
 void VulkanDevice::format_device_info_str(std::string &str) const {

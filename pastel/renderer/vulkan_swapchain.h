@@ -42,6 +42,8 @@ class VulkanSwapchain {
                             VkFence const &fence,
                             u32 *out_index) const;
 
+    VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
+
     std::vector<VkImage> const &images() const {
         return _images;
     }
