@@ -71,14 +71,14 @@ class VulkanDevice {
     VkPhysicalDevice _physical_device;
     VulkanPhysicalDeviceProperties _device_properties;
 
-    bool setup = false;
+    bool setup       = false;
     VkDevice _device = VK_NULL_HANDLE;
     std::unordered_map<int, int> queue_family_to_active_queue_count;
 
-    void format_device_info_str(std::string& str) const;
+    void format_device_info_str(std::string &str) const;
 
    public:
-    VulkanDevice() = default;
+    VulkanDevice()  = default;
     ~VulkanDevice() = default;
     void setup_device(VkInstance const &instance,
                       VkSurfaceKHR const &surface,
@@ -89,6 +89,13 @@ class VulkanDevice {
 
     bool create_logical_device();
     void destroy_device();
+
+    VkDevice const &device() const {
+        return _device;
+    }
+    VulkanPhysicalDeviceProperties const &device_properties() const {
+        return _device_properties;
+    }
 };
 
 bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices);

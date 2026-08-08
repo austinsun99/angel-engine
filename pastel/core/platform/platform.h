@@ -43,6 +43,7 @@ class WindowState {
     bool create_vulkan_surface(VkInstance const &vulkan_instance,
                                VkAllocationCallbacks *const &custom_allocator,
                                VkSurfaceKHR *out_vulkan_surface) const;
+    bool get_framebuffer_size(u32 *out_framebuffer_width, u32 *out_framebuffer_height) const;
 
    private:
     bool console_initialized;

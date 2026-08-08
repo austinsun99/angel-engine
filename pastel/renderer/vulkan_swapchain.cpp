@@ -1,0 +1,159 @@
+#include <vulkan/vulkan_core.h>
+#include <algorithm>
+#include "vulkan_swapchain.h"
+#include "core/logging/logger.h"
+#include "core/logging/asserts.h"
+#include "vulkan_utils.h"
+
+namespace Pastel::Renderer::Vulkan {
+bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 framebuffer_height) {
+    if (!_initialized) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Swapchain has not been initialized. Initialize the swapchain first.")
+        return false;
+    }
+
+    VulkanPhysicalDeviceProperties const &dev_properties    = _device->device_properties();
+    std::vector<VkSurfaceFormat2KHR> const &surface_formats = dev_properties.surface_formats;
+
+    PASTEL_ASSERT(surface_formats.size() > 0);
+
+    // Query for format and colourspace
+    _selected_surface_format = surface_formats[0].surfaceFormat;
+    for (VkSurfaceFormat2KHR const &fmt : surface_formats) {
+        // @todo: allow customization of wanted format/colourspace
+        if (fmt.surfaceFormat.format == VK_FORMAT_R8G8B8A8_SRGB &&
+            fmt.surfaceFormat.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
+            _selected_surface_format = fmt.surfaceFormat;
+            CORE_LOG_INFO(
+                "(Vulkan-Swapchain) Device supports r8g8b8a8_srgb and colorspace_srgb. Choosing those as format and "
+                "colourspace")
+            break;
+        }
+    }
+
+    // Query for present mode
+    VkPresentModeKHR selected_present_mode = VK_PRESENT_MODE_FIFO_KHR;
+    for (VkPresentModeKHR const &present : dev_properties.surface_present_modes) {
+        if (present == VK_PRESENT_MODE_MAILBOX_KHR) {
+            selected_present_mode = present;
+            break;
+        }
+    }
+
+    // Query for extents
+    VkSurfaceCapabilitiesKHR const &surface_capabilities = dev_properties.surface_capabilities.surfaceCapabilities;
+    _current_extent                                      = surface_capabilities.currentExtent;
+    if (surface_capabilities.currentExtent.width == std::numeric_limits<u32>::max()) {
+        _current_extent = {.width  = std::clamp(framebuffer_width,
+                                                surface_capabilities.minImageExtent.width,
+                                                surface_capabilities.maxImageExtent.width),
+                           .height = std::clamp(framebuffer_height,
+                                                surface_capabilities.minImageExtent.height,
+                                                surface_capabilities.maxImageExtent.height)};
+    }
+
+    // Query and set minimum image count
+    _image_count = surface_capabilities.minImageCount + 1;
+    if (surface_capabilities.maxImageCount != 0 && _image_count > surface_capabilities.maxImageCount) {
+        _image_count = surface_capabilities.maxImageCount;
+    }
+
+    // Set sharing mode based on graphics and present queue family index
+    VkSharingMode sharing_mode = VK_SHARING_MODE_EXCLUSIVE;
+    u32 index_count            = 1;
+    std::vector<u32> family_indices{
+        dev_properties.graphics_queue_index,
+    };
+
+    if (dev_properties.present_queue_index != dev_properties.graphics_queue_index) {
+        sharing_mode = VK_SHARING_MODE_CONCURRENT;
+        index_count  = 2;
+        family_indices.push_back(dev_properties.present_queue_index);
+        CORE_LOG_INFO(
+            "(Vulkan-Swapchain) Graphics and present belong to separate queue families. Setting sharing mode to "
+            "CONCURRENT")
+    }
+
+    // Create the swapchain
+    const VkSwapchainCreateInfoKHR swapchain_create_info{
+        .sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .pNext                 = nullptr,
+        .flags                 = 0,
+        .surface               = _surface,
+        .minImageCount         = _image_count,
+        .imageFormat           = _selected_surface_format.format,
+        .imageColorSpace       = _selected_surface_format.colorSpace,
+        .imageExtent           = _current_extent,
+        .imageArrayLayers      = 1,
+        .imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .imageSharingMode      = sharing_mode,
+        .queueFamilyIndexCount = index_count,
+        .pQueueFamilyIndices   = &family_indices[0],
+        .preTransform          = surface_capabilities.currentTransform,
+        .compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode           = selected_present_mode,
+        .clipped               = VK_TRUE,
+        .oldSwapchain          = VK_NULL_HANDLE,
+    };
+
+    VK_CHECK_RESULT(vkCreateSwapchainKHR(_device->device(), &swapchain_create_info, _custom_allocator, &_handle));
+
+    u32 image_count = 0;
+    VK_CHECK_RESULT(vkGetSwapchainImagesKHR(_device->device(), _handle, &image_count, nullptr));
+    PASTEL_ASSERT(image_count == _image_count);
+    _images.resize(_image_count);
+    VK_CHECK_RESULT(vkGetSwapchainImagesKHR(_device->device(), _handle, &image_count, &_images[0]));
+
+    if (!create_image_views()) {
+        return false;
+    }
+
+    return true;
+}
+
+bool VulkanSwapchain::create_image_views() {
+    PASTEL_ASSERT(_images.size() > 0);
+
+    // @todo: customization
+    const int base_miplevel  = 0;
+    const int miplevel_count = 4;
+
+    CORE_LOG_INFO("base miplevel: %u\n", base_miplevel);
+    CORE_LOG_INFO("level count: %u\n", miplevel_count);
+
+    _image_views.resize(_images.size());
+    VkImageViewCreateInfo view_create_info{
+        .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .pNext    = nullptr,
+        .flags    = 0,
+        .image    = nullptr,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format   = _selected_surface_format.format,
+        .components =
+            {
+                .r = VK_COMPONENT_SWIZZLE_R,
+                .g = VK_COMPONENT_SWIZZLE_G,
+                .b = VK_COMPONENT_SWIZZLE_B,
+                .a = VK_COMPONENT_SWIZZLE_A,
+            },
+        .subresourceRange =
+            {
+                .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel   = base_miplevel,
+                .levelCount     = miplevel_count,
+                .baseArrayLayer = 0,
+                .layerCount     = 1,
+            },
+    };
+
+    for (u64 i = 0; i < _images.size(); ++i) {
+        view_create_info.image = _images[i];
+        VK_CHECK_RESULT(vkCreateImageView(_device->device(), &view_create_info, _custom_allocator, &_image_views[i]));
+    }
+
+    CORE_LOG_INFO("(Vulkan-Swapchain) Successfully created %d image views", _image_views.size());
+
+    return true;
+}
+
+}  // namespace Pastel::Renderer::Vulkan

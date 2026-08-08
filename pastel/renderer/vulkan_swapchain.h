@@ -1,0 +1,42 @@
+#pragma once
+
+#include <vulkan/vulkan_core.h>
+#include "pastel_types.h"
+#include "renderer/vulkan_device.h"
+namespace Pastel::Renderer::Vulkan {
+
+class VulkanSwapchain {
+   private:
+    VulkanDevice *_device                     = nullptr;
+    VkAllocationCallbacks *_custom_allocator = nullptr;
+    VkSurfaceKHR _surface                     = VK_NULL_HANDLE;
+
+    VkSwapchainKHR _handle = VK_NULL_HANDLE;
+    u32 _image_count;
+    std::vector<VkImage> _images;
+    std::vector<VkImageView> _image_views;
+
+    VkSurfaceFormatKHR _selected_surface_format;
+    VkExtent2D _current_extent;
+
+    bool _initialized = false;
+    bool create_image_views();
+
+   public:
+    VulkanSwapchain() = default;
+    ~VulkanSwapchain() = default;
+
+    void init(VulkanDevice *const &device,
+              VkAllocationCallbacks *const &custom_allocator,
+              VkSurfaceKHR const &surface) {
+        _device            = device;
+        _custom_allocator = custom_allocator;
+        _surface           = surface;
+        _initialized       = true;
+    };
+    bool create_swapchain(const u32 framebuffer_width, const u32 framebuffer_height);
+    bool destroy_swapchain();
+    void acquire_next_image(u64 timeout, VkSemaphore image_available_semaphore, VkFence fence, u32 *out_index);
+};
+
+}  // namespace Pastel::Renderer::Vulkan

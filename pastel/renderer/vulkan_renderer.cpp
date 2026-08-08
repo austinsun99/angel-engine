@@ -5,19 +5,15 @@
 #include "vulkan_instance.h"
 
 namespace Pastel::Renderer::Vulkan {
-VulkanRenderer::VulkanRenderer(Platform::WindowState const &window_state) : _window_state(window_state) {
-    _custom_allocator = nullptr;
-}
-
 VulkanRenderer::~VulkanRenderer() {
     CORE_LOG_INFO("(Vulkan) Destroying vulkan device");
-    _vulkan_device.destroy_device();
+    _device.destroy_device();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan surface");
-    vkDestroySurfaceKHR(_vulkan_instance, _vulkan_surface, _custom_allocator);
+    vkDestroySurfaceKHR(_instance, _surface, _custom_allocator);
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan instance");
-    vkDestroyInstance(_vulkan_instance, _custom_allocator);
+    vkDestroyInstance(_instance, _custom_allocator);
 }
 
 void VulkanRenderer::start() {
@@ -43,24 +39,24 @@ void VulkanRenderer::start() {
         .enable_validation_layer      = true,
     };
 
-    if (!vulkan_create_instance(create_instance_info, &_vulkan_instance)) {
+    if (!vulkan_create_instance(create_instance_info, &_instance)) {
         CORE_LOG_FATAL("(Vulkan) Failed to create vulkan instance. Check log for details.")
     };
 
-    if (!_window_state.create_vulkan_surface(_vulkan_instance, _custom_allocator, &_vulkan_surface)) {
+    if (!_window_state.create_vulkan_surface(_instance, _custom_allocator, &_surface)) {
         CORE_LOG_FATAL("(Vulkan) Failed to create vulkan surface. Check log for details.")
     } else {
         CORE_LOG_INFO("(Vulkan) Successfully obtained vulkan surface.")
     }
 
     std::vector<VkPhysicalDevice> physical_devices;
-    vulkan_get_physical_devices(_vulkan_instance, physical_devices);
+    vulkan_get_physical_devices(_instance, physical_devices);
 
     VulkanPhysicalDeviceRequirements requirements;
     VulkanPhysicalDeviceProperties properties;
     VkPhysicalDevice selected_device;
     for (VkPhysicalDevice const &device : physical_devices) {
-        vulkan_get_physical_device_properties(device, _vulkan_surface, properties);
+        vulkan_get_physical_device_properties(device, _surface, properties);
         if (vulkan_physical_device_meets_requirements(properties, requirements, create_instance_info)) {
             selected_device = device;
             CORE_LOG_INFO("(Vulkan) Found suitable physical device.")
@@ -68,9 +64,13 @@ void VulkanRenderer::start() {
         }
     }
 
-    _vulkan_device
-        .setup_device(_vulkan_instance, _vulkan_surface, _custom_allocator, selected_device, requirements, properties);
-    _vulkan_device.create_logical_device();
-    // _vulkan_device.create_logical_device();
+    _device.setup_device(_instance, _surface, _custom_allocator, selected_device, requirements, properties);
+    _device.create_logical_device();
+
+    // _swapchain.init(&_device, _custom_allocator, _surface);
+    // u32 framebuffer_width  = 0;
+    // u32 framebuffer_height = 0;
+    // _window_state.get_framebuffer_size(&framebuffer_width, &framebuffer_height);
+    // _swapchain.create_swapchain(framebuffer_width, framebuffer_height);
 }
 }  // namespace Pastel::Renderer::Vulkan
