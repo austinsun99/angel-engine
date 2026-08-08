@@ -2,7 +2,6 @@
 #include "core/logging/logger.h"
 #include "pastel_types.h"
 #include "vulkan_utils.h"
-#include "core/logging/asserts.h"
 #include <vulkan/vulkan_core.h>
 #include <cstring>
 #include <vector>

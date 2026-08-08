@@ -67,10 +67,7 @@ void VulkanRenderer::start() {
     _device.setup_device(_instance, _surface, _custom_allocator, selected_device, requirements, properties);
     _device.create_logical_device();
 
-    // _swapchain.init(&_device, _custom_allocator, _surface);
-    // u32 framebuffer_width  = 0;
-    // u32 framebuffer_height = 0;
-    // _window_state.get_framebuffer_size(&framebuffer_width, &framebuffer_height);
-    // _swapchain.create_swapchain(framebuffer_width, framebuffer_height);
+    _swapchain.init(&_device, _custom_allocator, _surface);
+    _swapchain.create_swapchain(_window_state.framebuffer_width(), _window_state.framebuffer_height());
 }
 }  // namespace Pastel::Renderer::Vulkan

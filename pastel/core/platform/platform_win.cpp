@@ -320,6 +320,10 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             int y = GET_Y_LPARAM(lparam);
             state->input.process_mouse_position(x, y);
         } break;
+        case WM_SIZE: {
+            state->width  = LOWORD(lParam);
+            state->height = HIWORD(lParam);
+        }
         case WM_MOUSEWHEEL: {
             state->input.process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));
         } break;

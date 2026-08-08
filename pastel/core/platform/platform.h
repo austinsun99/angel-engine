@@ -18,8 +18,8 @@ struct WindowConfig {
 class WindowState {
    public:
     bool running;
-    int width;
-    int height;
+    u32 width;
+    u32 height;
 
     Input input;
 
@@ -43,7 +43,14 @@ class WindowState {
     bool create_vulkan_surface(VkInstance const &vulkan_instance,
                                VkAllocationCallbacks *const &custom_allocator,
                                VkSurfaceKHR *out_vulkan_surface) const;
-    bool get_framebuffer_size(u32 *out_framebuffer_width, u32 *out_framebuffer_height) const;
+
+    u32 framebuffer_width() const {
+        return width;
+    }
+
+    u32 framebuffer_height() const {
+        return height;
+    }
 
    private:
     bool console_initialized;
