@@ -10,6 +10,8 @@
 #    include <errhandlingapi.h>
 #    include <cstring>
 
+#    include "vulkan/vulkan.h"
+#    include "vulkan/vulkan_win32.h"
 #    include "core/io/terminal_colours.h"
 #    include "core/platform/platform.h"
 #    include "core/logging/logger.h"
@@ -25,6 +27,7 @@ struct InternalState {
     const char *WINDOW_CLASS = "Pastel Main Window Class";
 
     HINSTANCE instance;
+    HWND hwnd;
 
     double clock_frequency_inverse;
 };
@@ -130,30 +133,30 @@ bool WindowState::open_window(const WindowConfig config) {
         return false;
     }
 
-    HWND hwnd = CreateWindowEx(ex_wnd_style,
-                               internal->WINDOW_CLASS,
-                               config.application_name,
-                               wnd_style,
+    internal->hwnd = CreateWindowEx(ex_wnd_style,
+                                    internal->WINDOW_CLASS,
+                                    config.application_name,
+                                    wnd_style,
 
-                               // size and positioning
-                               winx,
-                               winy,
-                               win_width,
-                               win_height,
+                                    // size and positioning
+                                    winx,
+                                    winy,
+                                    win_width,
+                                    win_height,
 
-                               nullptr,  // parent window
-                               nullptr,  // menu
-                               internal->instance,
-                               this);
+                                    nullptr,  // parent window
+                                    nullptr,  // menu
+                                    internal->instance,
+                                    this);
     CORE_LOG_INFO("Windows (2/3): Window has been created")
 
-    if (hwnd == nullptr) {
+    if (internal->hwnd == nullptr) {
         log_win_error_msg_fatal(GetLastError());
         return false;
     }
 
     CORE_LOG_INFO("Windows (3/3): Showing window...")
-    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(internal->hwnd, SW_SHOW);
     return true;
 }
 
@@ -205,6 +208,24 @@ double WindowState::get_time() {
     QueryPerformanceCounter(&counter);
     return static_cast<double>(counter.QuadPart) * internal->clock_frequency_inverse;
 }
+
+bool WindowState::create_vulkan_surface(VkInstance const &vulkan_instance,
+                                        VkAllocationCallbacks *const &custom_allocator,
+                                        VkSurfaceKHR *out_vulkan_surface) const {
+    const InternalState *internal = static_cast<InternalState *>(internal_state);
+
+    const VkWin32SurfaceCreateInfoKHR create_info = {
+        .sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+        .pNext     = nullptr,
+        .flags     = 0,
+        .hinstance = internal->instance,
+        .hwnd      = internal->hwnd,
+    };
+
+    const VkResult result =
+        vkCreateWin32SurfaceKHR(vulkan_instance, &create_info, custom_allocator, out_vulkan_surface);
+    return result == VK_SUCCESS;
+};
 
 double WindowState::get_delta_time() {
     return current_time - prev_time;

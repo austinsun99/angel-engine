@@ -26,7 +26,7 @@ else
 endif
 
 LIBDIRS := 
-LIBS := -lvulkan
+LIBS :=
 
 #
 # --- FIND FILES ---
@@ -44,11 +44,13 @@ SRCS := $(call rwildcard,.,*.cpp) $(call rwildcard,.,*.c)
 #
 WAYLAND_SESSION := false
 ifeq ($(OS),Windows_NT)
+	LIBS += -lvulkan-1
 	TARGET := $(LIB_DIR)/pastel.dll
 	LIBFLAGS := -shared -Wl,--out-implib,$(LIB_DIR)/libpastel.a
 else
 	UNAME := $(shell uname)
 ifeq ($(UNAME),Linux)
+	LIBS += -lvulkan
 	TARGET := $(LIB_DIR)/libpastel.so
 	LIBFLAGS := -shared
 	DISPLAY_SERVER := $(shell \
