@@ -107,6 +107,7 @@ void VulkanRenderer::update_start() {
 
     if (_should_recreate_swapchain) {
         vkDeviceWaitIdle(_device.device());
+        _device.requery_swapchain_info();
         _swapchain.destroy_swapchain();
         _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
         _should_recreate_swapchain = false;

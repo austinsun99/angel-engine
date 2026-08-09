@@ -169,38 +169,7 @@ bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
     out_properties.device_features_2.pNext  = &out_properties.device_features_11;
     vkGetPhysicalDeviceFeatures2(device, &out_properties.device_features_2);
 
-    // Surface information for swapchain
-    VkPhysicalDeviceSurfaceInfo2KHR surface_info{
-        .sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
-        .pNext   = nullptr,
-        .surface = surface,
-    };
-
-    out_properties.surface_capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
-    out_properties.surface_capabilities.pNext = nullptr;
-    VK_CHECK_RESULT(
-        vkGetPhysicalDeviceSurfaceCapabilities2KHR(device, &surface_info, &out_properties.surface_capabilities));
-
-    u32 surface_format_count = 0;
-    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceFormats2KHR(device, &surface_info, &surface_format_count, nullptr));
-    out_properties.surface_formats.assign(surface_format_count,
-                                          VkSurfaceFormat2KHR{
-                                              .sType         = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR,
-                                              .pNext         = nullptr,
-                                              .surfaceFormat = {},
-                                          });
-    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceFormats2KHR(device,
-                                                          &surface_info,
-                                                          &surface_format_count,
-                                                          &out_properties.surface_formats[0]));
-
-    u32 surface_present_mode_count = 0;
-    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &surface_present_mode_count, nullptr));
-    out_properties.surface_present_modes.resize(surface_present_mode_count);
-    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device,
-                                                              surface,
-                                                              &surface_present_mode_count,
-                                                              &out_properties.surface_present_modes[0]));
+    vulkan_query_swapchain_info(device, surface, out_properties);
 
     // Query queue information
     u32 queue_family_properties_count = 0;
@@ -377,6 +346,45 @@ void VulkanDevice::format_device_info_str(std::string &str) const {
                         _device_properties.memory_properties.memoryProperties.memoryHeaps[i].size / 1024 / 1024));
     }
     str.append("\n");
+}
+
+bool vulkan_query_swapchain_info(VkPhysicalDevice const &device,
+                                 VkSurfaceKHR const &surface,
+                                 VulkanPhysicalDeviceProperties &out_properties) {
+    // Surface information for swapchain
+    VkPhysicalDeviceSurfaceInfo2KHR surface_info{
+        .sType   = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO_2_KHR,
+        .pNext   = nullptr,
+        .surface = surface,
+    };
+
+    out_properties.surface_capabilities.sType = VK_STRUCTURE_TYPE_SURFACE_CAPABILITIES_2_KHR;
+    out_properties.surface_capabilities.pNext = nullptr;
+    VK_CHECK_RESULT(
+        vkGetPhysicalDeviceSurfaceCapabilities2KHR(device, &surface_info, &out_properties.surface_capabilities));
+
+    u32 surface_format_count = 0;
+    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceFormats2KHR(device, &surface_info, &surface_format_count, nullptr));
+    out_properties.surface_formats.assign(surface_format_count,
+                                          VkSurfaceFormat2KHR{
+                                              .sType         = VK_STRUCTURE_TYPE_SURFACE_FORMAT_2_KHR,
+                                              .pNext         = nullptr,
+                                              .surfaceFormat = {},
+                                          });
+    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfaceFormats2KHR(device,
+                                                          &surface_info,
+                                                          &surface_format_count,
+                                                          &out_properties.surface_formats[0]));
+
+    u32 surface_present_mode_count = 0;
+    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &surface_present_mode_count, nullptr));
+    out_properties.surface_present_modes.resize(surface_present_mode_count);
+    VK_CHECK_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device,
+                                                              surface,
+                                                              &surface_present_mode_count,
+                                                              &out_properties.surface_present_modes[0]));
+
+    return true;
 }
 
 }  // namespace Pastel::Renderer::Vulkan

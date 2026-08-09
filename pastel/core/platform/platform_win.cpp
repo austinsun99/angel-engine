@@ -235,17 +235,6 @@ bool WindowState::console_is_initialized() {
     return console_initialized;
 }
 
-bool WindowState::get_framebuffer_size(u32 *out_framebuffer_width, u32 *out_framebuffer_height) const {
-    InternalState *internal = static_cast<InternalState *>(internal_state);
-    RECT rect;
-    if (GetClientRect(internal->hwnd, &rect)) {
-        *out_framebuffer_width = rect.right = rect.left;
-        *out_framebuffer_height             = rect.bottom - rect.top;
-        return true;
-    };
-    return false;
-}
-
 void console_write(const char *msg) {
     HANDLE console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
     if (console_stdout == INVALID_HANDLE_VALUE) {
@@ -321,8 +310,9 @@ static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
             state->input.process_mouse_position(x, y);
         } break;
         case WM_SIZE: {
-            state->width  = LOWORD(lParam);
-            state->height = HIWORD(lParam);
+            state->width  = LOWORD(lparam);
+            state->height = HIWORD(lparam);
+            return 0;
         }
         case WM_MOUSEWHEEL: {
             state->input.process_mouse_wheel(GET_WHEEL_DELTA_WPARAM(wparam));

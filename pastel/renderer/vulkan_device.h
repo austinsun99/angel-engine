@@ -60,6 +60,18 @@ struct VulkanPhysicalDeviceProperties {
     std::vector<VkExtensionProperties> extension_properties;
 };
 
+bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices);
+bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
+                                           VkSurfaceKHR const &surface,
+                                           VulkanPhysicalDeviceProperties &out_properties);
+bool vulkan_query_swapchain_info(VkPhysicalDevice const &device,
+                                 VkSurfaceKHR const &surface,
+                                 VulkanPhysicalDeviceProperties &out_properties);
+bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties const &properties,
+                                               VulkanPhysicalDeviceRequirements const &requirements,
+                                               VulkanCreateInstanceInfo const &instance_requirements);
+
+
 class VulkanDevice {
    private:
     // @todo: make ptrs
@@ -96,6 +108,10 @@ class VulkanDevice {
     void destroy_device();
     void destroy_graphics_command_pool();
 
+    bool requery_swapchain_info() {
+        return vulkan_query_swapchain_info(_physical_device, _vulkan_surface, _device_properties);
+    }
+
     VkDevice const &device() const {
         return _device;
     }
@@ -120,13 +136,5 @@ class VulkanDevice {
         return _queues[_device_properties.present_queue_index];
     }
 };
-
-bool vulkan_get_physical_devices(VkInstance const &instance, std::vector<VkPhysicalDevice> &out_physical_devices);
-bool vulkan_get_physical_device_properties(VkPhysicalDevice const &device,
-                                           VkSurfaceKHR const &surface,
-                                           VulkanPhysicalDeviceProperties &out_properties);
-bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties const &properties,
-                                               VulkanPhysicalDeviceRequirements const &requirements,
-                                               VulkanCreateInstanceInfo const &instance_requirements);
 
 }  // namespace Pastel::Renderer::Vulkan

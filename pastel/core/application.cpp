@@ -1,10 +1,7 @@
 #include "application.h"
-#include "containers/vector.hpp"
 #include "core/logging/logger.h"
 #include "core/memory/memory.h"
-#include "core/platform/input.h"
 #include "core/platform/platform.h"
-#include "pastel_types.h"
 #include "renderer/vulkan_renderer.h"
 
 namespace Pastel {
