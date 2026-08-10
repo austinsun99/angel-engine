@@ -44,6 +44,10 @@ class VulkanSwapchain {
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
+    void selected_format(VkFormat &out_format) const {
+        out_format = _selected_surface_format.format;
+    }
+
     std::vector<VkImage> const &images() const {
         return _images;
     }

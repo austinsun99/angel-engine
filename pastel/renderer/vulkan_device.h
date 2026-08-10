@@ -28,6 +28,7 @@ struct VulkanPhysicalDeviceRequirements {
 
     std::vector<const char *> required_extensions{
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     };
 };
 
@@ -70,7 +71,6 @@ bool vulkan_query_swapchain_info(VkPhysicalDevice const &device,
 bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties const &properties,
                                                VulkanPhysicalDeviceRequirements const &requirements,
                                                VulkanCreateInstanceInfo const &instance_requirements);
-
 
 class VulkanDevice {
    private:

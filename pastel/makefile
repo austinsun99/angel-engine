@@ -36,6 +36,7 @@ rwildcard = $(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(
 OBJ_DIR := $(BUILD_DIR)/obj/pastel
 GEN_DIR := $(BUILD_DIR)/gen
 LIB_DIR := $(BUILD_DIR)/lib
+SHADERS_DIR := $(BUILD_DIR)/..
 
 SRCS := $(call rwildcard,.,*.cpp) $(call rwildcard,.,*.c)
 
@@ -95,6 +96,11 @@ endif
 OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
+SHADER_SRCS_FRAG := $(call rwildcard,./assets/shaders,*.frag)
+SHADER_SRCS_VERT := $(call rwildcard,./assets/shaders,*.vert)
+SHADER_SPV_VERT := $(SHADER_SRCS_VERT:%=$(SHADERS_DIR)/%.spv)
+SHADER_SPV_FRAG := $(SHADER_SRCS_FRAG:%=$(SHADERS_DIR)/%.spv)
+
 #
 # --- FLAGS ---
 #
@@ -110,10 +116,20 @@ LDLIBS := $(LIBS)
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(SHADER_SPV_FRAG) $(SHADER_SPV_VERT) $(OBJS)
 	mkdir -p $(dir $@)
 	$(info >>> $@ <<<)
 	$(CXX) $(OBJS) $(LDFLAGS) $(LDLIBS) -o $(TARGET)
+
+$(SHADER_SPV_FRAG): $(SHADER_SRCS_FRAG)
+	mkdir -p $(dir $@)
+	$(info > SHADER: $@)
+	glslc --target-env=vulkan1.4 -fshader-stage=frag $< -o $@
+
+$(SHADER_SPV_VERT): $(SHADER_SRCS_VERT)
+	mkdir -p $(dir $@)
+	$(info > SHADER: $@)
+	glslc --target-env=vulkan1.4 -fshader-stage=vert $< -o $@
 
 $(OBJ_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
@@ -126,6 +142,7 @@ $(OBJ_DIR)/%.cpp.o: %.cpp
 	$(CXX) $(CXXFLAGS) -std=c++20 -c $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR)
+	$(info cleaning...)
+	rm -rf ../build
 
 -include $(DEPS)

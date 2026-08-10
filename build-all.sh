@@ -11,7 +11,7 @@ fi
 
 
 if [ "$1" = "rebuild" ]; then
-    make clean
+    rm -rf build
     rm compile_commands.json
 fi
 

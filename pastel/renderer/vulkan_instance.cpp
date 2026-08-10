@@ -156,6 +156,11 @@ static bool check_required_extensions(std::vector<const char *> const &extension
     VK_CHECK_RESULT(
         vkEnumerateInstanceExtensionProperties(nullptr, &available_extension_count, &available_extensions[0]));
 
+    CORE_LOG_TRACE("(Vulkan Instance) Enumerating extensions (%d)...", available_extension_count)
+    for (VkExtensionProperties const& extension : available_extensions) {
+        CORE_LOG_TRACE("(Vulkan Instance) Found extension: %s", extension.extensionName)
+    }
+
     for (const char *const &extension_name : extension_names) {
         CORE_LOG_DEBUG("(Vulkan Instance) Searching for extension %s", extension_name);
         bool found = false;

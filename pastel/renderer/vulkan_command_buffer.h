@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 #include <vector>
+#include "pastel_types.h"
 namespace Pastel::Renderer::Vulkan {
 
 // represents 1 command buffer
@@ -34,8 +35,15 @@ class VulkanCommandBuffer {
     bool begin(bool one_time_submit, bool render_pass_continue, bool simultaneous_use);
     bool end();
     bool reset();
+    bool transition_image_layout(VkImage const &image,
+                                 VkImageLayout old_layout,
+                                 VkImageLayout new_layout,
+                                 VkAccessFlags2 src_access_mask,
+                                 VkAccessFlags2 dst_access_mask,
+                                 VkPipelineStageFlags2 src_stage_mask,
+                                 VkPipelineStageFlags dst_stage_mask);
 
-    VkCommandBuffer const& handle() const {
+    VkCommandBuffer const &handle() const {
         return _handle;
     }
 };

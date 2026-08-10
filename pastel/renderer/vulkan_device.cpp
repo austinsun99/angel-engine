@@ -87,6 +87,8 @@ bool VulkanDevice::create_logical_device() {
     device_features_11.pNext = &device_features_12;
     device_features_2.pNext  = &device_features_11;
 
+    device_features_13.synchronization2 = VK_TRUE;
+
     if (_device_requirements.dynamic_rendering) {
         PASTEL_ASSERT(_device_properties.device_features_13.dynamicRendering == VK_TRUE);
         device_features_13.dynamicRendering = VK_TRUE;

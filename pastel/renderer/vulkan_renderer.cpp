@@ -1,5 +1,6 @@
 #include "vulkan_renderer.h"
 #include <vulkan/vulkan_core.h>
+#include <cstddef>
 #include <cstdint>
 #include "core/logging/logger.h"
 #include "renderer/vulkan_command_buffer.h"
@@ -91,6 +92,9 @@ void VulkanRenderer::start() {
     }
 
     _sync_objects.create(_swapchain.images().size(), true, _device.device(), _custom_allocator);
+
+    _graphics_pipeline.init(&_device, &_swapchain, _custom_allocator);
+    _graphics_pipeline.create();
 }
 
 void VulkanRenderer::update_start() {
@@ -121,40 +125,6 @@ void VulkanRenderer::update_start() {
 
     VulkanCommandBuffer buffer = _graphics_command_buffers[image_index];
 
-    const VkImageSubresourceRange subresource_range{
-        .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel   = 0,
-        .levelCount     = 1,
-        .baseArrayLayer = 0,
-        .layerCount     = 1,
-    };
-
-    const VkImageMemoryBarrier present_to_clear_barrier{
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext               = nullptr,
-        .srcAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
-        .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image               = _swapchain.images()[image_index],
-        .subresourceRange    = subresource_range,
-    };
-
-    const VkImageMemoryBarrier clear_to_present_barrier{
-        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .pNext               = nullptr,
-        .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dstAccessMask       = VK_ACCESS_MEMORY_READ_BIT,
-        .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        .newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image               = _swapchain.images()[image_index],
-        .subresourceRange    = subresource_range,
-    };
-
     const VkClearColorValue clear_colour = {.float32{
         1.0f,
         _current_framebuffer_width / 4000.0f,
@@ -162,36 +132,65 @@ void VulkanRenderer::update_start() {
         0.0,
     }};
 
+    VkViewport viewport{
+        .x        = 0.0f,
+        .y        = 0.0f,
+        .width    = static_cast<float>(_current_framebuffer_width),
+        .height   = static_cast<float>(_current_framebuffer_height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f,
+    };
+
+    VkRect2D scissor{
+        .offset{0, 0},
+        .extent{.width = _current_framebuffer_width, .height = _current_framebuffer_height},
+    };
+
+    VkClearValue clear_value{};
+    clear_value.color = clear_colour;
+
+    VkRenderingAttachmentInfo attachment_info{};
+    attachment_info.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    attachment_info.imageView   = _swapchain.image_views()[image_index];
+    attachment_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachment_info.loadOp      = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachment_info.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment_info.clearValue  = clear_value;
+
+    VkRenderingInfo rendering_info{};
+    rendering_info.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    rendering_info.renderArea           = scissor;
+    rendering_info.layerCount           = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments    = &attachment_info;
+
     buffer.reset();
     buffer.begin(true, false, false);
-    vkCmdPipelineBarrier(buffer.handle(),
-                         VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         0,
-                         0,
-                         nullptr,
-                         0,
-                         nullptr,
-                         1,
-                         &present_to_clear_barrier);
+    buffer.transition_image_layout(_swapchain.images()[image_index],
+                                   VK_IMAGE_LAYOUT_UNDEFINED,
+                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                   {},
+                                   VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    vkCmdClearColorImage(buffer.handle(),
-                         _swapchain.images()[image_index],
-                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                         &clear_colour,
-                         1,
-                         &subresource_range);
+    vkCmdBeginRendering(buffer.handle(), &rendering_info);
+    vkCmdBindPipeline(buffer.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline.handle());
 
-    vkCmdPipelineBarrier(buffer.handle(),
-                         VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         VK_PIPELINE_STAGE_TRANSFER_BIT,
-                         0,
-                         0,
-                         nullptr,
-                         0,
-                         nullptr,
-                         1,
-                         &clear_to_present_barrier);
+    vkCmdSetViewport(buffer.handle(), 0, 1, &viewport);
+    vkCmdSetScissor(buffer.handle(), 0, 1, &scissor);
+
+    vkCmdDraw(buffer.handle(), 3, 1, 0, 0);
+
+    vkCmdEndRendering(buffer.handle());
+
+    buffer.transition_image_layout(_swapchain.images()[image_index],
+                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                   VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                                   {},
+                                   VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                   VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT);
     buffer.end();
 
     VkPipelineStageFlags stage_flags = {

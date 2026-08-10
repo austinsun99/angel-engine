@@ -230,6 +230,7 @@ const static struct {
         .axis_discrete           = axis_discrete,
         .axis_value120           = axis_value120,
         .axis_relative_direction = axis_relative_direction,
+        .warp                    = nullptr,
     };
 } wl_pointer_listener;
 

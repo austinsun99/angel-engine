@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_core.h>
 #include <array>
 #include "core/platform/platform.h"
+#include "renderer/vulkan_graphics_pipeline.h"
 #include "renderer/vulkan_synchronization.hpp"
 #include "vulkan_device.h"
 #include "vulkan_swapchain.h"
@@ -23,6 +24,7 @@ class VulkanRenderer {
     VkSurfaceKHR _surface;
     VulkanDevice _device;
     VulkanSwapchain _swapchain;
+    GraphicsPipeline _graphics_pipeline;
 
     std::vector<VulkanCommandBuffer> _graphics_command_buffers;
 
