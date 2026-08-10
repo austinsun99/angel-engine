@@ -12,6 +12,8 @@ class GraphicsPipeline {
     VulkanSwapchain *_swapchain;
 
     VkPipeline _handle;
+    VkPipelineLayout _layout;
+    std::vector<VkShaderModule> _shader_modules;
 
     bool create_shader_module(const char *file_name, VkShaderModule *out_module);
 
@@ -32,5 +34,6 @@ class GraphicsPipeline {
     }
 
     bool create();
+    bool destroy();
 };
 }  // namespace Pastel::Renderer::Vulkan

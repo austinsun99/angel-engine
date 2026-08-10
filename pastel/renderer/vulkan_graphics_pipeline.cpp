@@ -64,23 +64,24 @@ bool GraphicsPipeline::create() {
     layout_create_info.setLayoutCount         = 0;
     layout_create_info.pushConstantRangeCount = 0;
 
-    VkPipelineLayout layout;
-    VK_CHECK_RESULT(vkCreatePipelineLayout(_device->device(), &layout_create_info, _custom_allocator, &layout));
+    VK_CHECK_RESULT(vkCreatePipelineLayout(_device->device(), &layout_create_info, _custom_allocator, &_layout));
 
     VkShaderModule vert_shader_mod{};
     VkShaderModule frag_shader_mod{};
     create_shader_module("build/assets/shaders/triangle.vert.spv", &vert_shader_mod);
     create_shader_module("build/assets/shaders/triangle.frag.spv", &frag_shader_mod);
+    _shader_modules.push_back(vert_shader_mod);
+    _shader_modules.push_back(frag_shader_mod);
 
     VkPipelineShaderStageCreateInfo vert_shader_stage_create_info{};
     vert_shader_stage_create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vert_shader_stage_create_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
     vert_shader_stage_create_info.module = vert_shader_mod;
     vert_shader_stage_create_info.pName  = "main";
 
     VkPipelineShaderStageCreateInfo frag_shader_stage_create_info{};
     frag_shader_stage_create_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frag_shader_stage_create_info.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
     frag_shader_stage_create_info.module = frag_shader_mod;
     frag_shader_stage_create_info.pName  = "main";
 
@@ -112,7 +113,7 @@ bool GraphicsPipeline::create() {
         .pDepthStencilState  = nullptr,
         .pColorBlendState    = &color_blend_state_create_info,
         .pDynamicState       = &dynamic_state_create_info,
-        .layout              = layout,
+        .layout              = _layout,
         .renderPass          = nullptr,
         .subpass             = 0,
         .basePipelineHandle  = VK_NULL_HANDLE,
@@ -121,6 +122,16 @@ bool GraphicsPipeline::create() {
 
     VK_CHECK_RESULT(
         vkCreateGraphicsPipelines(_device->device(), nullptr, 1, &pipeline_create_info, _custom_allocator, &_handle));
+    return true;
+}
+
+bool GraphicsPipeline::destroy() {
+    for (VkShaderModule const &_module : _shader_modules) {
+        vkDestroyShaderModule(_device->device(), _module, _custom_allocator);
+    }
+
+    vkDestroyPipelineLayout(_device->device(), _layout, _custom_allocator);
+    vkDestroyPipeline(_device->device(), _handle, _custom_allocator);
     return true;
 }
 

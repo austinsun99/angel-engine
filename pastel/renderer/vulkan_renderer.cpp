@@ -1,6 +1,6 @@
 #include "vulkan_renderer.h"
 #include <vulkan/vulkan_core.h>
-#include <cstddef>
+#include <algorithm>
 #include <cstdint>
 #include "core/logging/logger.h"
 #include "renderer/vulkan_command_buffer.h"
@@ -11,6 +11,11 @@
 namespace Pastel::Renderer::Vulkan {
 VulkanRenderer::~VulkanRenderer() {
     vkDeviceWaitIdle(_device.device());
+
+    CORE_LOG_INFO("(Vulkan) Destroying vulkan graphics pipeline");
+    _graphics_pipeline.destroy();
+
+    CORE_LOG_INFO("(Vulkan) Destroying vulkan sync objects");
     _sync_objects.destroy();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan swapchain");
@@ -98,8 +103,6 @@ void VulkanRenderer::start() {
 }
 
 void VulkanRenderer::update_start() {
-    // const u32 present_queue_index = _device.device_properties().present_queue_index;
-
     if (_current_framebuffer_width != _window_state.framebuffer_width()) {
         _should_recreate_swapchain = true;
         _current_framebuffer_width = _window_state.framebuffer_width();
@@ -127,8 +130,8 @@ void VulkanRenderer::update_start() {
 
     const VkClearColorValue clear_colour = {.float32{
         1.0f,
-        _current_framebuffer_width / 4000.0f,
-        _current_framebuffer_height / 4000.0f,
+        std::min(_current_framebuffer_width / 4000.f, 1.f),
+        std::min(_current_framebuffer_height / 4000.f, 1.f),
         0.0,
     }};
 

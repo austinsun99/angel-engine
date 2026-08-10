@@ -15,8 +15,8 @@ namespace Pastel::Renderer::Vulkan {
 
 class VulkanRenderer {
    private:
-    u32 _current_framebuffer_width;
-    u32 _current_framebuffer_height;
+    u32 _current_framebuffer_width = 0;
+    u32 _current_framebuffer_height = 0;
     Platform::WindowState const &_window_state;
     VkAllocationCallbacks *_custom_allocator;
 
