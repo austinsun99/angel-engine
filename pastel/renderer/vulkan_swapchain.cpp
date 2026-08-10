@@ -157,6 +157,10 @@ bool VulkanSwapchain::create_image_views() {
     return true;
 }
 
+bool VulkanSwapchain::create_graphics_buffer() {
+    return true;
+}
+
 bool VulkanSwapchain::destroy_swapchain() {
     for (VkImageView const &view : _image_views) {
         vkDestroyImageView(_device->device(), view, _custom_allocator);

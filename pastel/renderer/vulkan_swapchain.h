@@ -16,6 +16,8 @@ class VulkanSwapchain {
     std::vector<VkImage> _images;
     std::vector<VkImageView> _image_views;
 
+    VkBuffer _graphics_buffer;
+
     VkSurfaceFormatKHR _selected_surface_format;
     VkExtent2D _current_extent;
 
@@ -41,6 +43,7 @@ class VulkanSwapchain {
                             VkSemaphore const &image_available_semaphore,
                             VkFence const &fence,
                             u32 *out_index) const;
+    bool create_graphics_buffer();
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
