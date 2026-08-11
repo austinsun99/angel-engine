@@ -112,6 +112,8 @@ class VulkanDevice {
         return vulkan_query_swapchain_info(_physical_device, _vulkan_surface, _device_properties);
     }
 
+    bool find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index);
+
     VkDevice const &device() const {
         return _device;
     }

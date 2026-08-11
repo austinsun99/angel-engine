@@ -1,4 +1,5 @@
 #include "vulkan_graphics_pipeline.h"
+#include "renderer/vector.hpp"
 #include "vulkan_utils.h"
 #include <vulkan/vulkan_core.h>
 #include "core/io/filesystem.h"
@@ -25,7 +26,17 @@ bool GraphicsPipeline::create() {
     viewport_state_create_info.viewportCount = 1;
     viewport_state_create_info.scissorCount  = 1;
 
-    VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{};
+    VkVertexInputBindingDescription binding_description                     = Vertex::get_binding_description();
+    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions = Vertex::get_attribute_descriptions();
+    VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info{
+        .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext                           = nullptr,
+        .flags                           = 0,
+        .vertexBindingDescriptionCount   = 1,
+        .pVertexBindingDescriptions      = &binding_description,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(Vertex::get_attribute_descriptions().size()),
+        .pVertexAttributeDescriptions    = &attribute_descriptions[0],
+    };
     vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info{};

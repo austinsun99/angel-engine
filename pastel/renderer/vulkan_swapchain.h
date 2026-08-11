@@ -2,9 +2,13 @@
 
 #include <vulkan/vulkan_core.h>
 #include "pastel_types.h"
+#include "renderer/vector.hpp"
 #include "renderer/vulkan_device.h"
 namespace Pastel::Renderer::Vulkan {
 
+const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
 class VulkanSwapchain {
    private:
     VulkanDevice *_device                    = nullptr;
@@ -16,7 +20,8 @@ class VulkanSwapchain {
     std::vector<VkImage> _images;
     std::vector<VkImageView> _image_views;
 
-    VkBuffer _graphics_buffer;
+    VkBuffer _vertex_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory _graphics_memory;
 
     VkSurfaceFormatKHR _selected_surface_format;
     VkExtent2D _current_extent;
@@ -39,11 +44,12 @@ class VulkanSwapchain {
 
     bool create_swapchain(const u32 framebuffer_width, const u32 framebuffer_height);
     bool destroy_swapchain();
+    bool destroy_buffers();
     bool acquire_next_image(u64 timeout,
                             VkSemaphore const &image_available_semaphore,
                             VkFence const &fence,
                             u32 *out_index) const;
-    bool create_graphics_buffer();
+    bool create_vertex_buffer();
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
@@ -57,6 +63,10 @@ class VulkanSwapchain {
 
     std::vector<VkImageView> const &image_views() const {
         return _image_views;
+    }
+
+    VkBuffer const &vertex_buffer() const {
+        return _vertex_buffer;
     }
 };
 

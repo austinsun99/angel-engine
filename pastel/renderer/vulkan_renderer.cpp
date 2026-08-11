@@ -5,6 +5,7 @@
 #include "core/logging/logger.h"
 #include "renderer/vulkan_command_buffer.h"
 #include "renderer/vulkan_device.h"
+#include "renderer/vulkan_swapchain.h"
 #include "renderer/vulkan_synchronization.hpp"
 #include "vulkan_instance.h"
 
@@ -19,6 +20,7 @@ VulkanRenderer::~VulkanRenderer() {
     _sync_objects.destroy();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan swapchain");
+    _swapchain.destroy_buffers();
     _swapchain.destroy_swapchain();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan device");
@@ -88,6 +90,9 @@ void VulkanRenderer::start() {
     _current_framebuffer_height = _window_state.framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
     _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
+    if (!_swapchain.create_vertex_buffer() || _swapchain.vertex_buffer() == VK_NULL_HANDLE) {
+        CORE_LOG_FATAL("(Vulkan) Could nto create vertex buffer.")
+    }
 
     _graphics_command_buffers.resize(
         _swapchain.images().size(),
@@ -180,10 +185,17 @@ void VulkanRenderer::update_start() {
     vkCmdBeginRendering(buffer.handle(), &rendering_info);
     vkCmdBindPipeline(buffer.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline.handle());
 
+    if (_swapchain.vertex_buffer() == VK_NULL_HANDLE) {
+        CORE_LOG_ERROR("checkin")
+    }
+    const VkDeviceSize offsets[] = {0};
+    const VkBuffer buffers[]     = {_swapchain.vertex_buffer()};
+    vkCmdBindVertexBuffers(buffer.handle(), 0, 1, buffers, offsets);
+
     vkCmdSetViewport(buffer.handle(), 0, 1, &viewport);
     vkCmdSetScissor(buffer.handle(), 0, 1, &scissor);
 
-    vkCmdDraw(buffer.handle(), 3, 1, 0, 0);
+    vkCmdDraw(buffer.handle(), vertices.size(), 1, 0, 0);
 
     vkCmdEndRendering(buffer.handle());
 

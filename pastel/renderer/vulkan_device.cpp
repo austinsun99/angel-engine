@@ -389,4 +389,16 @@ bool vulkan_query_swapchain_info(VkPhysicalDevice const &device,
     return true;
 }
 
+bool VulkanDevice::find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index) {
+    VkPhysicalDeviceMemoryProperties const &memory_properties = _device_properties.memory_properties.memoryProperties;
+    for (u64 i = 0; i < memory_properties.memoryTypeCount; ++i) {
+        if ((type_filter & (1 << i)) &&
+            (memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags) {
+            *out_index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
 }  // namespace Pastel::Renderer::Vulkan
