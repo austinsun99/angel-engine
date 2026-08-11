@@ -6,9 +6,12 @@
 #include "renderer/vulkan_device.h"
 namespace Pastel::Renderer::Vulkan {
 
-const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-                                      {{0.0f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<u32> indices     = {0, 1, 2, 2, 3, 0};
+
 class VulkanSwapchain {
    private:
     VulkanDevice *_device                    = nullptr;
@@ -21,7 +24,9 @@ class VulkanSwapchain {
     std::vector<VkImageView> _image_views;
 
     VkBuffer _vertex_buffer = VK_NULL_HANDLE;
-    VkDeviceMemory _graphics_memory;
+    VkDeviceMemory _vertex_buffer_memory;
+    VkBuffer _index_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory _index_buffer_memory;
 
     VkSurfaceFormatKHR _selected_surface_format;
     VkExtent2D _current_extent;
@@ -49,7 +54,9 @@ class VulkanSwapchain {
                             VkSemaphore const &image_available_semaphore,
                             VkFence const &fence,
                             u32 *out_index) const;
+
     bool create_vertex_buffer();
+    bool create_index_buffer();
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
@@ -67,6 +74,10 @@ class VulkanSwapchain {
 
     VkBuffer const &vertex_buffer() const {
         return _vertex_buffer;
+    }
+
+    VkBuffer const &index_buffer() const {
+        return _index_buffer;
     }
 };
 

@@ -106,6 +106,51 @@ bool VulkanSwapchain::create_swapchain(const u32 framebuffer_width, const u32 fr
     return true;
 }
 
+bool VulkanSwapchain::create_index_buffer() {
+    const VkBufferUsageFlags2CreateInfo staging_usage_flags{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .usage = VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT,
+    };
+
+    const VkBufferUsageFlags2CreateInfo index_usage_flags{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .usage = VK_BUFFER_USAGE_2_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+    };
+    const VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+    const VkMemoryPropertyFlags property_flags =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    VkBuffer staging_buf;
+    VkDeviceMemory staging_buf_mem;
+
+    if (!_device->create_buffer(buffer_size,
+                                staging_usage_flags,
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                &staging_buf,
+                                &staging_buf_mem)) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create staging buffer for index buffer.")
+        return false;
+    }
+
+    if (!_device
+             ->create_buffer(buffer_size, index_usage_flags, property_flags, &_index_buffer, &_index_buffer_memory)) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create index buffer.")
+        return false;
+    };
+
+    void *data;
+    VK_CHECK_RESULT(vkMapMemory(_device->device(), staging_buf_mem, 0, buffer_size, 0, &data));
+    std::memcpy(data, &indices[0], buffer_size);
+    vkUnmapMemory(_device->device(), staging_buf_mem);
+
+    _device->copy_buffer(_index_buffer, staging_buf, buffer_size);
+    vkDestroyBuffer(_device->device(), staging_buf, _custom_allocator);
+    vkFreeMemory(_device->device(), staging_buf_mem, _custom_allocator);
+    return true;
+}
+
 VkResult VulkanSwapchain::present(VkSemaphore const &render_complete_sem, u32 image_index) {
     const VkPresentInfoKHR present_info{
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -186,7 +231,11 @@ bool VulkanSwapchain::create_vertex_buffer() {
         return false;
     }
 
-    if (!_device->create_buffer(buffer_size, vertex_usage_flags, property_flags, &_vertex_buffer, &_graphics_memory)) {
+    if (!_device->create_buffer(buffer_size,
+                                vertex_usage_flags,
+                                property_flags,
+                                &_vertex_buffer,
+                                &_vertex_buffer_memory)) {
         CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create vertex buffer.")
         return false;
     };
@@ -215,7 +264,9 @@ bool VulkanSwapchain::destroy_swapchain() {
 }
 
 bool VulkanSwapchain::destroy_buffers() {
-    vkFreeMemory(_device->device(), _graphics_memory, _custom_allocator);
+    vkFreeMemory(_device->device(), _index_buffer_memory, _custom_allocator);
+    vkDestroyBuffer(_device->device(), _index_buffer, _custom_allocator);
+    vkFreeMemory(_device->device(), _vertex_buffer_memory, _custom_allocator);
     vkDestroyBuffer(_device->device(), _vertex_buffer, _custom_allocator);
     return true;
 }

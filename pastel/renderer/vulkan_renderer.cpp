@@ -90,8 +90,8 @@ void VulkanRenderer::start() {
     _current_framebuffer_height = _window_state.framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
     _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
-    if (!_swapchain.create_vertex_buffer() || _swapchain.vertex_buffer() == VK_NULL_HANDLE) {
-        CORE_LOG_FATAL("(Vulkan) Could nto create vertex buffer.")
+    if (!_swapchain.create_vertex_buffer() || !_swapchain.create_index_buffer()) {
+        CORE_LOG_FATAL("(Vulkan) Could not create vertex or index buffer.")
     }
 
     _graphics_command_buffers.resize(
@@ -191,12 +191,12 @@ void VulkanRenderer::update_start() {
     const VkDeviceSize offsets[] = {0};
     const VkBuffer buffers[]     = {_swapchain.vertex_buffer()};
     vkCmdBindVertexBuffers(buffer.handle(), 0, 1, buffers, offsets);
+    vkCmdBindIndexBuffer(buffer.handle(), _swapchain.index_buffer(), 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdSetViewport(buffer.handle(), 0, 1, &viewport);
     vkCmdSetScissor(buffer.handle(), 0, 1, &scissor);
 
-    vkCmdDraw(buffer.handle(), vertices.size(), 1, 0, 0);
-
+    vkCmdDrawIndexed(buffer.handle(), indices.size(), 1, 0, 0, 0);
     vkCmdEndRendering(buffer.handle());
 
     buffer.transition_image_layout(_swapchain.images()[image_index],
