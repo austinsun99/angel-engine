@@ -49,7 +49,7 @@ bool GraphicsPipeline::create() {
     rasterization_state_create_info.rasterizerDiscardEnable = VK_FALSE;
     rasterization_state_create_info.polygonMode             = VK_POLYGON_MODE_FILL;
     rasterization_state_create_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-    rasterization_state_create_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+    rasterization_state_create_info.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterization_state_create_info.depthBiasEnable         = VK_FALSE;
     rasterization_state_create_info.lineWidth               = 1.0f;
 
@@ -72,7 +72,8 @@ bool GraphicsPipeline::create() {
 
     VkPipelineLayoutCreateInfo layout_create_info{};
     layout_create_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layout_create_info.setLayoutCount         = 0;
+    layout_create_info.setLayoutCount         = 1;
+    layout_create_info.pSetLayouts            = &_swapchain->descriptor_set_layout();
     layout_create_info.pushConstantRangeCount = 0;
 
     VK_CHECK_RESULT(vkCreatePipelineLayout(_device->device(), &layout_create_info, _custom_allocator, &_layout));

@@ -3,14 +3,23 @@
 #include <vulkan/vulkan_core.h>
 #include <array>
 #include <cstddef>
+#include <glm/ext/matrix_float4x4.hpp>
 namespace Pastel::Renderer::Vulkan {
 
+// @todo: move this to math header
 struct Vec2 {
     float x;
     float y;
 };
 
 struct Vec3 {
+    float x;
+    float y;
+    float z;
+};
+
+struct Vec4 {
+    float w;
     float x;
     float y;
     float z;
@@ -44,6 +53,13 @@ struct Vertex {
             },
         };
     }
+};
+
+struct UniformBuffer {
+    // @todo: replace with own math library mat4
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
 };
 
 }  // namespace Pastel::Renderer::Vulkan

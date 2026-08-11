@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
+#include <vector>
 #include "pastel_types.h"
 #include "renderer/vector.hpp"
 #include "renderer/vulkan_device.h"
@@ -27,6 +28,15 @@ class VulkanSwapchain {
     VkDeviceMemory _vertex_buffer_memory;
     VkBuffer _index_buffer = VK_NULL_HANDLE;
     VkDeviceMemory _index_buffer_memory;
+
+    std::vector<VkBuffer> _uniform_buffers;
+    std::vector<VkDeviceMemory> _uniform_buffers_memory;
+    std::vector<void *> _uniform_buffers_map;
+
+    VkDescriptorSetLayout _descriptor_set_layout;
+    std::vector<VkDescriptorSet> _descriptor_sets;
+
+    VkDescriptorPool _descriptor_pool;
 
     VkSurfaceFormatKHR _selected_surface_format;
     VkExtent2D _current_extent;
@@ -57,6 +67,8 @@ class VulkanSwapchain {
 
     bool create_vertex_buffer();
     bool create_index_buffer();
+    bool create_uniform_buffers();
+    bool create_descriptor_set_layout_and_pool();
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
@@ -78,6 +90,18 @@ class VulkanSwapchain {
 
     VkBuffer const &index_buffer() const {
         return _index_buffer;
+    }
+
+    std::vector<void *> const &uniform_buffers_map() const {
+        return _uniform_buffers_map;
+    }
+
+    VkDescriptorSetLayout const &descriptor_set_layout() const {
+        return _descriptor_set_layout;
+    }
+
+    std::vector<VkDescriptorSet> const &descriptor_sets() const {
+        return _descriptor_sets;
     }
 };
 

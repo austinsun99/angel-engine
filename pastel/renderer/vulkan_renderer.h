@@ -33,6 +33,8 @@ class VulkanRenderer {
     u32 _current_frame = 0;
     bool _should_recreate_swapchain = false;
 
+    void update_uniform_buffer(u32 current_image);
+
    public:
     VulkanRenderer(Platform::WindowState const &window_state) : _window_state(window_state) {
         _custom_allocator = nullptr;

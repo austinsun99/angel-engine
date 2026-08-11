@@ -4,6 +4,8 @@
 #include "vulkan_swapchain.h"
 #include "core/logging/logger.h"
 #include "core/logging/asserts.h"
+#include "renderer/vector.hpp"
+#include "renderer/vulkan_renderer.h"
 #include "vulkan_utils.h"
 
 namespace Pastel::Renderer::Vulkan {
@@ -151,6 +153,106 @@ bool VulkanSwapchain::create_index_buffer() {
     return true;
 }
 
+bool VulkanSwapchain::create_uniform_buffers() {
+    const VkBufferUsageFlags2CreateInfo create_flags{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .usage = VK_BUFFER_USAGE_2_UNIFORM_BUFFER_BIT,
+    };
+
+    const VkDeviceSize buffer_size = sizeof(UniformBuffer);
+    _uniform_buffers.resize(FRAMES_IN_FLIGHT);
+    _uniform_buffers_memory.resize(FRAMES_IN_FLIGHT);
+    _uniform_buffers_map.resize(FRAMES_IN_FLIGHT);
+
+    for (u64 i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        _device->create_buffer(buffer_size,
+                               create_flags,
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                               &_uniform_buffers[i],
+                               &_uniform_buffers_memory[i]);
+        vkMapMemory(_device->device(), _uniform_buffers_memory[i], 0, buffer_size, 0, &_uniform_buffers_map[i]);
+    }
+
+    return true;
+}
+
+bool VulkanSwapchain::create_descriptor_set_layout_and_pool() {
+    VkDescriptorSetLayoutBinding ubo_layout_binding{
+        .binding            = 0,
+        .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount    = 1,
+        .stageFlags         = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr,
+    };
+
+    VkDescriptorSetLayoutCreateInfo layout_create_info{
+        .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext        = nullptr,
+        .flags        = 0,
+        .bindingCount = 1,
+        .pBindings    = &ubo_layout_binding,
+    };
+
+    VK_CHECK_RESULT(vkCreateDescriptorSetLayout(_device->device(),
+                                                &layout_create_info,
+                                                _custom_allocator,
+                                                &_descriptor_set_layout));
+
+    VkDescriptorPoolSize pool_size{
+        .type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = FRAMES_IN_FLIGHT,
+    };
+
+    VkDescriptorPoolCreateInfo pool_create_info{
+        .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .pNext         = nullptr,
+        .flags         = 0,
+        .maxSets       = FRAMES_IN_FLIGHT,
+        .poolSizeCount = 1,
+        .pPoolSizes    = &pool_size,
+    };
+
+    VK_CHECK_RESULT(vkCreateDescriptorPool(_device->device(), &pool_create_info, _custom_allocator, &_descriptor_pool));
+
+    std::vector<VkDescriptorSetLayout> layouts(FRAMES_IN_FLIGHT, _descriptor_set_layout);
+
+    VkDescriptorSetAllocateInfo set_allocate_info{
+        .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext              = nullptr,
+        .descriptorPool     = _descriptor_pool,
+        .descriptorSetCount = FRAMES_IN_FLIGHT,
+        .pSetLayouts        = &layouts[0],
+    };
+
+    _descriptor_sets.resize(FRAMES_IN_FLIGHT);
+    VK_CHECK_RESULT(vkAllocateDescriptorSets(_device->device(), &set_allocate_info, &_descriptor_sets[0]));
+
+    for (u64 i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        VkDescriptorBufferInfo buffer_info{
+            .buffer = _uniform_buffers[i],
+            .offset = 0,
+            .range  = sizeof(UniformBuffer),
+        };
+
+        VkWriteDescriptorSet write_descriptor_set{
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext            = nullptr,
+            .dstSet           = _descriptor_sets[i],
+            .dstBinding       = 0,
+            .dstArrayElement  = 0,
+            .descriptorCount  = 1,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo       = nullptr,
+            .pBufferInfo      = &buffer_info,
+            .pTexelBufferView = nullptr,
+        };
+        vkUpdateDescriptorSets(_device->device(), 1, &write_descriptor_set, 0, nullptr);
+    }
+
+    return true;
+}
+
 VkResult VulkanSwapchain::present(VkSemaphore const &render_complete_sem, u32 image_index) {
     const VkPresentInfoKHR present_info{
         .sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -264,10 +366,18 @@ bool VulkanSwapchain::destroy_swapchain() {
 }
 
 bool VulkanSwapchain::destroy_buffers() {
+    for (u64 i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        vkFreeMemory(_device->device(), _uniform_buffers_memory[i], _custom_allocator);
+        vkDestroyBuffer(_device->device(), _uniform_buffers[i], _custom_allocator);
+    }
+
     vkFreeMemory(_device->device(), _index_buffer_memory, _custom_allocator);
     vkDestroyBuffer(_device->device(), _index_buffer, _custom_allocator);
     vkFreeMemory(_device->device(), _vertex_buffer_memory, _custom_allocator);
     vkDestroyBuffer(_device->device(), _vertex_buffer, _custom_allocator);
+
+    vkDestroyDescriptorPool(_device->device(), _descriptor_pool, _custom_allocator);
+    vkDestroyDescriptorSetLayout(_device->device(), _descriptor_set_layout, _custom_allocator);
     return true;
 }
 

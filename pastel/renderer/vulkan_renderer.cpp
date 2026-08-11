@@ -1,7 +1,15 @@
 #include "vulkan_renderer.h"
 #include <vulkan/vulkan_core.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <cstring>
+#include "renderer/vector.hpp"
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "core/logging/logger.h"
 #include "renderer/vulkan_command_buffer.h"
 #include "renderer/vulkan_device.h"
@@ -90,9 +98,11 @@ void VulkanRenderer::start() {
     _current_framebuffer_height = _window_state.framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
     _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
-    if (!_swapchain.create_vertex_buffer() || !_swapchain.create_index_buffer()) {
+    if (!_swapchain.create_vertex_buffer() || !_swapchain.create_index_buffer() ||
+        !_swapchain.create_uniform_buffers()) {
         CORE_LOG_FATAL("(Vulkan) Could not create vertex or index buffer.")
     }
+    _swapchain.create_descriptor_set_layout_and_pool();
 
     _graphics_command_buffers.resize(
         _swapchain.images().size(),
@@ -172,6 +182,8 @@ void VulkanRenderer::update_start() {
     rendering_info.colorAttachmentCount = 1;
     rendering_info.pColorAttachments    = &attachment_info;
 
+    update_uniform_buffer(_current_frame);
+
     buffer.reset();
     buffer.begin(true, false, false);
     buffer.transition_image_layout(_swapchain.images()[image_index],
@@ -196,6 +208,14 @@ void VulkanRenderer::update_start() {
     vkCmdSetViewport(buffer.handle(), 0, 1, &viewport);
     vkCmdSetScissor(buffer.handle(), 0, 1, &scissor);
 
+    vkCmdBindDescriptorSets(buffer.handle(),
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            _graphics_pipeline.layout(),
+                            0,
+                            1,
+                            &_swapchain.descriptor_sets()[_current_frame],
+                            0,
+                            nullptr);
     vkCmdDrawIndexed(buffer.handle(), indices.size(), 1, 0, 0, 0);
     vkCmdEndRendering(buffer.handle());
 
@@ -235,6 +255,24 @@ void VulkanRenderer::update_start() {
 }
 
 void VulkanRenderer::update_end() {
+}
+
+// @todo: update to use window state time
+void VulkanRenderer::update_uniform_buffer(u32 current_image) {
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time      = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
+    UniformBuffer ubo{};
+
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view  = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj  = glm::perspective(glm::radians(45.0f),
+                                 _current_framebuffer_width / (float)_current_framebuffer_height,
+                                 0.1f,
+                                 10.0f);
+    ubo.proj[1][1] *= -1;
+    std::memcpy(_swapchain.uniform_buffers_map()[current_image], &ubo, sizeof(ubo));
 }
 
 }  // namespace Pastel::Renderer::Vulkan

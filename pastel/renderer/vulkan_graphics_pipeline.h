@@ -33,6 +33,10 @@ class GraphicsPipeline {
         return _handle;
     }
 
+    VkPipelineLayout const& layout() const {
+        return _layout;
+    }
+
     bool create();
     bool destroy();
 };
