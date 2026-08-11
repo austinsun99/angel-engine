@@ -159,44 +159,46 @@ bool VulkanSwapchain::create_image_views() {
 }
 
 bool VulkanSwapchain::create_vertex_buffer() {
-    VkBufferCreateInfo buffer_create_info{
-        .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext                 = nullptr,
-        .flags                 = 0,
-        .size                  = sizeof(vertices[0]) * vertices.size(),
-        .usage                 = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices   = &_device->device_properties().graphics_queue_index,
+    const VkBufferUsageFlags2CreateInfo staging_usage_flags{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .usage = VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT,
     };
 
-    VK_CHECK_RESULT(vkCreateBuffer(_device->device(), &buffer_create_info, _custom_allocator, &_vertex_buffer));
+    const VkBufferUsageFlags2CreateInfo vertex_usage_flags{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_USAGE_FLAGS_2_CREATE_INFO,
+        .pNext = nullptr,
+        .usage = VK_BUFFER_USAGE_2_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+    };
+    const VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+    const VkMemoryPropertyFlags property_flags =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(_device->device(), _vertex_buffer, &memory_requirements);
+    VkBuffer staging_buf;
+    VkDeviceMemory staging_buf_mem;
 
-    u32 memory_index = 0;
-    if (!_device->find_suitable_memory_type(memory_requirements.memoryTypeBits,
-                                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                                            &memory_index)) {
-        CORE_LOG_WARN("(Vulkan-Swapchain) Could not find suitable memory type.")
+    if (!_device->create_buffer(buffer_size,
+                                staging_usage_flags,
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                                &staging_buf,
+                                &staging_buf_mem)) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create staging buffer.")
         return false;
     }
-    VkMemoryAllocateInfo allocate_info{
-        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext           = nullptr,
-        .allocationSize  = memory_requirements.size,
-        .memoryTypeIndex = memory_index,
-    };
-    VK_CHECK_RESULT(vkAllocateMemory(_device->device(), &allocate_info, _custom_allocator, &_graphics_memory));
 
-    VK_CHECK_RESULT(vkBindBufferMemory(_device->device(), _vertex_buffer, _graphics_memory, 0));
+    if (!_device->create_buffer(buffer_size, vertex_usage_flags, property_flags, &_vertex_buffer, &_graphics_memory)) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create vertex buffer.")
+        return false;
+    };
 
     void *data;
-    VK_CHECK_RESULT(vkMapMemory(_device->device(), _graphics_memory, 0, buffer_create_info.size, 0, &data));
-    std::memcpy(data, &vertices[0], buffer_create_info.size);
-    vkUnmapMemory(_device->device(), _graphics_memory);
+    VK_CHECK_RESULT(vkMapMemory(_device->device(), staging_buf_mem, 0, buffer_size, 0, &data));
+    std::memcpy(data, &vertices[0], buffer_size);
+    vkUnmapMemory(_device->device(), staging_buf_mem);
 
+    _device->copy_buffer(_vertex_buffer, staging_buf, buffer_size);
+    vkDestroyBuffer(_device->device(), staging_buf, _custom_allocator);
+    vkFreeMemory(_device->device(), staging_buf_mem, _custom_allocator);
     return true;
 }
 
@@ -213,6 +215,7 @@ bool VulkanSwapchain::destroy_swapchain() {
 }
 
 bool VulkanSwapchain::destroy_buffers() {
+    vkFreeMemory(_device->device(), _graphics_memory, _custom_allocator);
     vkDestroyBuffer(_device->device(), _vertex_buffer, _custom_allocator);
     return true;
 }

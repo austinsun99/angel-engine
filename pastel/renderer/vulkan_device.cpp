@@ -2,9 +2,11 @@
 
 #include <vulkan/vulkan_core.h>
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <format>
+#include <optional>
 #include <unordered_set>
 #include <vector>
 #include "core/logging/asserts.h"
@@ -127,6 +129,101 @@ bool VulkanDevice::create_logical_device() {
 
     return true;
 }  // namespace Pastel::Renderer::Vulkan
+
+bool VulkanDevice::create_buffer(VkDeviceSize size,
+                                 VkBufferUsageFlags2CreateInfo const &usage_flags,
+                                 VkMemoryPropertyFlags properties,
+                                 VkBuffer *const &out_buffer,
+                                 VkDeviceMemory *const &out_memory) const {
+    (void)usage_flags;
+    VkBufferCreateInfo buffer_create_info{
+        .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .pNext                 = &usage_flags,
+        .flags                 = 0,
+        .size                  = size,
+        .usage                 = 0,
+        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 1,
+        .pQueueFamilyIndices   = &_device_properties.graphics_queue_index,
+    };
+
+    VK_CHECK_RESULT(vkCreateBuffer(_device, &buffer_create_info, _custom_allocator, out_buffer));
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(_device, *out_buffer, &memory_requirements);
+
+    u32 memory_index = 0;
+    if (!find_suitable_memory_type(memory_requirements.memoryTypeBits, properties, &memory_index)) {
+        CORE_LOG_WARN("(Vulkan-Swapchain) Could not find suitable memory type.")
+        return false;
+    }
+
+    VkMemoryAllocateInfo allocate_info{
+        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext           = nullptr,
+        .allocationSize  = memory_requirements.size,
+        .memoryTypeIndex = memory_index,
+    };
+    VK_CHECK_RESULT(vkAllocateMemory(_device, &allocate_info, _custom_allocator, out_memory));
+    VK_CHECK_RESULT(vkBindBufferMemory(_device, *out_buffer, *out_memory, 0));
+
+    return true;
+}
+
+bool VulkanDevice::copy_buffer(VkBuffer &dst_buffer, VkBuffer &src_buffer, VkDeviceSize size) {
+    const VkCommandBufferAllocateInfo allocate_info{
+        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext              = nullptr,
+        .commandPool        = _graphics_command_pool,
+        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+
+    const VkCommandBufferBeginInfo begin_info{
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .pNext            = nullptr,
+        .flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        .pInheritanceInfo = nullptr,
+    };
+
+    const VkBufferCopy2 copy_region{
+        .sType     = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+        .pNext     = nullptr,
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size      = size,
+    };
+
+    const VkCopyBufferInfo2 copy_info{
+        .sType       = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+        .pNext       = nullptr,
+        .srcBuffer   = src_buffer,
+        .dstBuffer   = dst_buffer,
+        .regionCount = 1,
+        .pRegions    = &copy_region,
+    };
+
+    VkCommandBuffer buf;
+
+    VkSubmitInfo submit_info{};
+    submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers    = &buf;
+
+    vkAllocateCommandBuffers(_device, &allocate_info, &buf);
+    vkBeginCommandBuffer(buf, &begin_info);
+
+    vkCmdCopyBuffer2(buf, &copy_info);
+
+    vkEndCommandBuffer(buf);
+
+    vkQueueSubmit(graphics_queue(), 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphics_queue());
+
+    vkFreeCommandBuffers(_device, _graphics_command_pool, 1, &buf);
+    return true;
+}
 
 void VulkanDevice::destroy_device() {
     vkDestroyDevice(_device, _custom_allocator);
@@ -389,7 +486,7 @@ bool vulkan_query_swapchain_info(VkPhysicalDevice const &device,
     return true;
 }
 
-bool VulkanDevice::find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index) {
+bool VulkanDevice::find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index) const {
     VkPhysicalDeviceMemoryProperties const &memory_properties = _device_properties.memory_properties.memoryProperties;
     for (u64 i = 0; i < memory_properties.memoryTypeCount; ++i) {
         if ((type_filter & (1 << i)) &&

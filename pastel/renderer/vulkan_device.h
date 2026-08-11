@@ -46,6 +46,7 @@ struct VulkanPhysicalDeviceProperties {
     u32 transfer_queue_index = QUEUE_INDEX_NONE;
 
     VkPhysicalDeviceProperties2 device_properties;
+
     VkPhysicalDeviceMemoryProperties2 memory_properties;
 
     VkPhysicalDeviceFeatures2 device_features_2;
@@ -105,6 +106,13 @@ class VulkanDevice {
     bool create_graphics_command_pool(
         VkCommandPoolCreateFlags create_flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     bool create_logical_device();
+    bool create_buffer(VkDeviceSize size,
+                       VkBufferUsageFlags2CreateInfo const &usage_flags,
+                       VkMemoryPropertyFlags properties,
+                       VkBuffer *const &out_buffer,
+                       VkDeviceMemory *const &out_memory) const;
+    bool copy_buffer(VkBuffer &dst_buffer, VkBuffer &src_buffer, VkDeviceSize size);
+
     void destroy_device();
     void destroy_graphics_command_pool();
 
@@ -112,7 +120,7 @@ class VulkanDevice {
         return vulkan_query_swapchain_info(_physical_device, _vulkan_surface, _device_properties);
     }
 
-    bool find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index);
+    bool find_suitable_memory_type(u32 type_filter, u32 property_flags, u32 *out_index) const;
 
     VkDevice const &device() const {
         return _device;
