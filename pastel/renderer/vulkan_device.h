@@ -38,11 +38,8 @@ struct VulkanPhysicalDeviceProperties {
 
     // UINT32_MAX indicates the queue does not exist
     u32 graphics_queue_index = QUEUE_INDEX_NONE;
-    // UINT32_MAX indicates the queue does not exist
     u32 compute_queue_index  = QUEUE_INDEX_NONE;
-    // UINT32_MAX indicates the queue does not exist
     u32 present_queue_index  = QUEUE_INDEX_NONE;
-    // UINT32_MAX indicates the queue does not exist
     u32 transfer_queue_index = QUEUE_INDEX_NONE;
 
     VkPhysicalDeviceProperties2 device_properties;
@@ -106,11 +103,6 @@ class VulkanDevice {
     bool create_graphics_command_pool(
         VkCommandPoolCreateFlags create_flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     bool create_logical_device();
-    bool create_buffer(VkDeviceSize size,
-                       VkBufferUsageFlags2CreateInfo const &usage_flags,
-                       VkMemoryPropertyFlags properties,
-                       VkBuffer *const &out_buffer,
-                       VkDeviceMemory *const &out_memory) const;
     bool copy_buffer(VkBuffer &dst_buffer, VkBuffer &src_buffer, VkDeviceSize size);
 
     void destroy_device();
@@ -131,10 +123,6 @@ class VulkanDevice {
     }
 
     VkCommandPool const &graphics_command_pool() const {
-        if (_graphics_command_pool == VK_NULL_HANDLE) {
-            CORE_LOG_WARN(
-                "(Vulkan-device) retrieving graphics command pool, but command poll has not been created yet.")
-        }
         return _graphics_command_pool;
     }
 

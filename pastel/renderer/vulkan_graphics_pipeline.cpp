@@ -6,7 +6,7 @@
 
 namespace Pastel::Renderer::Vulkan {
 
-bool GraphicsPipeline::create() {
+bool GraphicsPipeline::create(VkDescriptorSetLayout descriptor_set_layout) {
     const u32 dynamic_state_count                      = 2;
     VkDynamicState dynamic_states[dynamic_state_count] = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -73,7 +73,7 @@ bool GraphicsPipeline::create() {
     VkPipelineLayoutCreateInfo layout_create_info{};
     layout_create_info.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layout_create_info.setLayoutCount         = 1;
-    layout_create_info.pSetLayouts            = &_swapchain->descriptor_set_layout();
+    layout_create_info.pSetLayouts            = &descriptor_set_layout;
     layout_create_info.pushConstantRangeCount = 0;
 
     VK_CHECK_RESULT(vkCreatePipelineLayout(_device->device(), &layout_create_info, _custom_allocator, &_layout));

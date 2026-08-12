@@ -11,6 +11,7 @@
 #include <vector>
 #include "core/logging/asserts.h"
 #include "core/logging/logger.h"
+#include "renderer/vulkan_constructor.hpp"
 #include "renderer/vulkan_instance.h"
 #include "renderer/vulkan_utils.h"
 
@@ -130,46 +131,6 @@ bool VulkanDevice::create_logical_device() {
     return true;
 }  // namespace Pastel::Renderer::Vulkan
 
-bool VulkanDevice::create_buffer(VkDeviceSize size,
-                                 VkBufferUsageFlags2CreateInfo const &usage_flags,
-                                 VkMemoryPropertyFlags properties,
-                                 VkBuffer *const &out_buffer,
-                                 VkDeviceMemory *const &out_memory) const {
-    (void)usage_flags;
-    VkBufferCreateInfo buffer_create_info{
-        .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext                 = &usage_flags,
-        .flags                 = 0,
-        .size                  = size,
-        .usage                 = 0,
-        .sharingMode           = VK_SHARING_MODE_EXCLUSIVE,
-        .queueFamilyIndexCount = 1,
-        .pQueueFamilyIndices   = &_device_properties.graphics_queue_index,
-    };
-
-    VK_CHECK_RESULT(vkCreateBuffer(_device, &buffer_create_info, _custom_allocator, out_buffer));
-
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(_device, *out_buffer, &memory_requirements);
-
-    u32 memory_index = 0;
-    if (!find_suitable_memory_type(memory_requirements.memoryTypeBits, properties, &memory_index)) {
-        CORE_LOG_WARN("(Vulkan-Swapchain) Could not find suitable memory type.")
-        return false;
-    }
-
-    VkMemoryAllocateInfo allocate_info{
-        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .pNext           = nullptr,
-        .allocationSize  = memory_requirements.size,
-        .memoryTypeIndex = memory_index,
-    };
-    VK_CHECK_RESULT(vkAllocateMemory(_device, &allocate_info, _custom_allocator, out_memory));
-    VK_CHECK_RESULT(vkBindBufferMemory(_device, *out_buffer, *out_memory, 0));
-
-    return true;
-}
-
 bool VulkanDevice::copy_buffer(VkBuffer &dst_buffer, VkBuffer &src_buffer, VkDeviceSize size) {
     const VkCommandBufferAllocateInfo allocate_info{
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -178,7 +139,6 @@ bool VulkanDevice::copy_buffer(VkBuffer &dst_buffer, VkBuffer &src_buffer, VkDev
         .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
-
 
     const VkCommandBufferBeginInfo begin_info{
         .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -406,15 +366,11 @@ bool vulkan_physical_device_meets_requirements(VulkanPhysicalDeviceProperties co
 }
 
 bool VulkanDevice::create_graphics_command_pool(VkCommandPoolCreateFlags create_flags) {
-    VkCommandPoolCreateInfo create_info{
-        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext            = nullptr,
-        .flags            = create_flags,
-        .queueFamilyIndex = _device_properties.graphics_queue_index,
-    };
-
-    VK_CHECK_RESULT(vkCreateCommandPool(_device, &create_info, _custom_allocator, &_graphics_command_pool));
-    return true;
+    return create_command_pool(_device,
+                               _device_properties.graphics_queue_index,
+                               create_flags,
+                               &_graphics_command_pool,
+                               _custom_allocator);
 }
 
 void VulkanDevice::format_device_info_str(std::string &str) const {

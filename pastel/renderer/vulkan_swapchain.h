@@ -24,20 +24,6 @@ class VulkanSwapchain {
     std::vector<VkImage> _images;
     std::vector<VkImageView> _image_views;
 
-    VkBuffer _vertex_buffer = VK_NULL_HANDLE;
-    VkDeviceMemory _vertex_buffer_memory;
-    VkBuffer _index_buffer = VK_NULL_HANDLE;
-    VkDeviceMemory _index_buffer_memory;
-
-    std::vector<VkBuffer> _uniform_buffers;
-    std::vector<VkDeviceMemory> _uniform_buffers_memory;
-    std::vector<void *> _uniform_buffers_map;
-
-    VkDescriptorSetLayout _descriptor_set_layout;
-    std::vector<VkDescriptorSet> _descriptor_sets;
-
-    VkDescriptorPool _descriptor_pool;
-
     VkSurfaceFormatKHR _selected_surface_format;
     VkExtent2D _current_extent;
 
@@ -59,16 +45,13 @@ class VulkanSwapchain {
 
     bool create_swapchain(const u32 framebuffer_width, const u32 framebuffer_height);
     bool destroy_swapchain();
-    bool destroy_buffers();
     bool acquire_next_image(u64 timeout,
                             VkSemaphore const &image_available_semaphore,
                             VkFence const &fence,
                             u32 *out_index) const;
 
-    bool create_vertex_buffer();
-    bool create_index_buffer();
     bool create_uniform_buffers();
-    bool create_descriptor_set_layout_and_pool();
+    bool create_descriptor_set_layout_and_pool(std::vector<VkBuffer> const &uniform_buffers);
 
     VkResult present(VkSemaphore const &render_complete_sem, u32 image_index);
 
@@ -82,26 +65,6 @@ class VulkanSwapchain {
 
     std::vector<VkImageView> const &image_views() const {
         return _image_views;
-    }
-
-    VkBuffer const &vertex_buffer() const {
-        return _vertex_buffer;
-    }
-
-    VkBuffer const &index_buffer() const {
-        return _index_buffer;
-    }
-
-    std::vector<void *> const &uniform_buffers_map() const {
-        return _uniform_buffers_map;
-    }
-
-    VkDescriptorSetLayout const &descriptor_set_layout() const {
-        return _descriptor_set_layout;
-    }
-
-    std::vector<VkDescriptorSet> const &descriptor_sets() const {
-        return _descriptor_sets;
     }
 };
 

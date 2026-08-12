@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include "renderer/vector.hpp"
+#include "renderer/vulkan_constructor.hpp"
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -21,6 +22,18 @@ namespace Pastel::Renderer::Vulkan {
 VulkanRenderer::~VulkanRenderer() {
     vkDeviceWaitIdle(_device.device());
 
+    vkDestroyDescriptorPool(_device.device(), _descriptor_pool, _custom_allocator);
+    vkDestroyDescriptorSetLayout(_device.device(), _descriptor_set_layout, _custom_allocator);
+    for (u64 i = 0; i < _uniform_buffers.size(); ++i) {
+        vkDestroyBuffer(_device.device(), _uniform_buffers[i], _custom_allocator);
+        vkFreeMemory(_device.device(), _uniform_buffers_memory[i], _custom_allocator);
+    }
+
+    vkFreeMemory(_device.device(), _index_buffer_memory, _custom_allocator);
+    vkDestroyBuffer(_device.device(), _index_buffer, _custom_allocator);
+    vkFreeMemory(_device.device(), _vertex_buffer_memory, _custom_allocator);
+    vkDestroyBuffer(_device.device(), _vertex_buffer, _custom_allocator);
+
     CORE_LOG_INFO("(Vulkan) Destroying vulkan graphics pipeline");
     _graphics_pipeline.destroy();
 
@@ -28,7 +41,6 @@ VulkanRenderer::~VulkanRenderer() {
     _sync_objects.destroy();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan swapchain");
-    _swapchain.destroy_buffers();
     _swapchain.destroy_swapchain();
 
     CORE_LOG_INFO("(Vulkan) Destroying vulkan device");
@@ -92,17 +104,87 @@ void VulkanRenderer::start() {
 
     _device.setup_device(_instance, _surface, _custom_allocator, selected_device, requirements, properties);
     _device.create_logical_device();
+
     _device.create_graphics_command_pool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     _current_framebuffer_width  = _window_state.framebuffer_width();
     _current_framebuffer_height = _window_state.framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
     _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
-    if (!_swapchain.create_vertex_buffer() || !_swapchain.create_index_buffer() ||
-        !_swapchain.create_uniform_buffers()) {
-        CORE_LOG_FATAL("(Vulkan) Could not create vertex or index buffer.")
+
+    // Vertex, index, and uniform buffer creation
+    const VkDeviceSize vertex_buffer_size = sizeof(vertices[0]) * vertices.size();
+    const VkDeviceSize index_buffer_size  = sizeof(indices[0]) * indices.size();
+
+    const bool vertex_buffer_creation_success =
+        create_buffer(&_device,
+                      _device.device_properties().graphics_queue_index,
+                      vertex_buffer_size,
+                      VK_BUFFER_USAGE_2_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                      &_vertex_buffer,
+                      &_vertex_buffer_memory);
+    const bool index_buffer_creation_success =
+        create_buffer(&_device,
+                      _device.device_properties().graphics_queue_index,
+                      index_buffer_size,
+                      VK_BUFFER_USAGE_2_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_2_TRANSFER_DST_BIT,
+                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                      &_index_buffer,
+                      &_index_buffer_memory);
+
+    if (!vertex_buffer_creation_success || !index_buffer_creation_success) {
+        CORE_LOG_ERROR("(Vulkan-Swapchain) Failed to create vertex buffer.")
+    };
+    create_staging_buffer_and_stage(&_device, vertex_buffer_size, vertices.data(), _vertex_buffer, _custom_allocator);
+    create_staging_buffer_and_stage(&_device, index_buffer_size, indices.data(), _index_buffer, _custom_allocator);
+
+    const VkDeviceSize buffer_size = sizeof(UniformBuffer);
+    _uniform_buffers.resize(FRAMES_IN_FLIGHT);
+    _uniform_buffers_memory.resize(FRAMES_IN_FLIGHT);
+    _uniform_buffers_map.resize(FRAMES_IN_FLIGHT);
+
+    for (u64 i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        create_buffer(&_device,
+                      _device.device_properties().graphics_queue_index,
+                      buffer_size,
+                      VK_BUFFER_USAGE_2_UNIFORM_BUFFER_BIT,
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                      &_uniform_buffers[i],
+                      &_uniform_buffers_memory[i],
+                      _custom_allocator);
+        vkMapMemory(_device.device(), _uniform_buffers_memory[i], 0, buffer_size, 0, &_uniform_buffers_map[i]);
     }
-    _swapchain.create_descriptor_set_layout_and_pool();
+
+    create_descriptor_layout_and_pool(_device.device(),
+                                      VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                      VK_SHADER_STAGE_VERTEX_BIT,
+                                      FRAMES_IN_FLIGHT,
+                                      &_descriptor_set_layout,
+                                      &_descriptor_pool,
+                                      _custom_allocator);
+    allocate_descriptor_sets(_device.device(), _descriptor_set_layout, _descriptor_pool, _descriptor_sets);
+    for (u64 i = 0; i < FRAMES_IN_FLIGHT; ++i) {
+        VkDescriptorBufferInfo buffer_info{
+            .buffer = _uniform_buffers[i],
+            .offset = 0,
+            .range  = sizeof(UniformBuffer),
+        };
+
+        VkWriteDescriptorSet write_descriptor_set{
+            .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .pNext            = nullptr,
+            .dstSet           = _descriptor_sets[i],
+            .dstBinding       = 0,
+            .dstArrayElement  = 0,
+            .descriptorCount  = 1,
+            .descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo       = nullptr,
+            .pBufferInfo      = &buffer_info,
+            .pTexelBufferView = nullptr,
+        };
+        vkUpdateDescriptorSets(_device.device(), 1, &write_descriptor_set, 0, nullptr);
+    }
 
     _graphics_command_buffers.resize(
         _swapchain.images().size(),
@@ -114,7 +196,7 @@ void VulkanRenderer::start() {
     _sync_objects.create(_swapchain.images().size(), true, _device.device(), _custom_allocator);
 
     _graphics_pipeline.init(&_device, &_swapchain, _custom_allocator);
-    _graphics_pipeline.create();
+    _graphics_pipeline.create(_descriptor_set_layout);
 }
 
 void VulkanRenderer::update_start() {
@@ -197,13 +279,13 @@ void VulkanRenderer::update_start() {
     vkCmdBeginRendering(buffer.handle(), &rendering_info);
     vkCmdBindPipeline(buffer.handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline.handle());
 
-    if (_swapchain.vertex_buffer() == VK_NULL_HANDLE) {
+    if (_vertex_buffer == VK_NULL_HANDLE) {
         CORE_LOG_ERROR("checkin")
     }
     const VkDeviceSize offsets[] = {0};
-    const VkBuffer buffers[]     = {_swapchain.vertex_buffer()};
+    const VkBuffer buffers[]     = {_vertex_buffer};
     vkCmdBindVertexBuffers(buffer.handle(), 0, 1, buffers, offsets);
-    vkCmdBindIndexBuffer(buffer.handle(), _swapchain.index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(buffer.handle(), _index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdSetViewport(buffer.handle(), 0, 1, &viewport);
     vkCmdSetScissor(buffer.handle(), 0, 1, &scissor);
@@ -213,7 +295,7 @@ void VulkanRenderer::update_start() {
                             _graphics_pipeline.layout(),
                             0,
                             1,
-                            &_swapchain.descriptor_sets()[_current_frame],
+                            &_descriptor_sets[_current_frame],
                             0,
                             nullptr);
     vkCmdDrawIndexed(buffer.handle(), indices.size(), 1, 0, 0, 0);
@@ -272,7 +354,7 @@ void VulkanRenderer::update_uniform_buffer(u32 current_image) {
                                  0.1f,
                                  10.0f);
     ubo.proj[1][1] *= -1;
-    std::memcpy(_swapchain.uniform_buffers_map()[current_image], &ubo, sizeof(ubo));
+    std::memcpy(_uniform_buffers_map[current_image], &ubo, sizeof(ubo));
 }
 
 }  // namespace Pastel::Renderer::Vulkan

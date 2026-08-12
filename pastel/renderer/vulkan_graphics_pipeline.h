@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vulkan/vulkan_core.h>
-#include <utility>
 #include "renderer/vulkan_device.h"
 #include "renderer/vulkan_swapchain.h"
 namespace Pastel::Renderer::Vulkan {
@@ -37,7 +36,7 @@ class GraphicsPipeline {
         return _layout;
     }
 
-    bool create();
+    bool create(VkDescriptorSetLayout descriptor_set_layout);
     bool destroy();
 };
 }  // namespace Pastel::Renderer::Vulkan

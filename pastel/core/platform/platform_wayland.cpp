@@ -38,13 +38,10 @@ struct InternalState {
     struct wl_display *wl_display;
     struct wl_registry *wl_registry;
     struct wl_compositor *wl_compositor;
-    struct wl_shm *wl_shm;  // @temp
 
     struct wl_seat *wl_seat;
     struct wl_pointer *wl_pointer;
     struct wl_keyboard *wl_keyboard;
-    struct wl_shm_pool *wl_shm_pool;
-    struct wl_buffer *wl_buffer;
 
     struct xdg_wm_base *xdg_wm_base;
 
@@ -566,13 +563,6 @@ const static struct {
                 static_cast<wl_seat *>(wl_registry_bind(internal->wl_registry, name, &wl_seat_interface, min_ver));
             wl_seat_add_listener(internal->wl_seat, &wl_seat_listener.listener, state);
         }
-
-        // @temp remove after vulkan buffers
-        if (strcmp(interface, wl_shm_interface.name) == 0) {
-            const uint32_t min_ver = std::min<uint32_t>(3, version);
-            internal->wl_shm =
-                static_cast<wl_shm *>(wl_registry_bind(internal->wl_registry, name, &wl_shm_interface, min_ver));
-        }
     }
 
     static void global_remove(void *data, struct wl_registry *wl_registry, uint32_t name) {
@@ -600,10 +590,6 @@ WindowState::WindowState() {
 
 WindowState::~WindowState() {
     InternalState *internal = static_cast<InternalState *>(internal_state);
-    wl_buffer_destroy(internal->wl_buffer);
-    wl_shm_pool_destroy(internal->wl_shm_pool);
-    wl_shm_destroy(internal->wl_shm);
-
     xdg_surface_destroy(internal->xdg_surface);
     xdg_toplevel_destroy(internal->xdg_toplevel);
 
@@ -655,26 +641,6 @@ bool WindowState::open_window(const WindowConfig config) {
     xdg_toplevel_set_title(internal->xdg_toplevel, config.application_name);
     xdg_toplevel_add_listener(internal->xdg_toplevel, &xdg_toplevel_listener.listener, this);
 
-    // @temp
-    // the code below allocates a shared memory buffer. This is temporary to get something to show on the screen.
-    // Remove after vulkan renderer.
-    const int stride = config.width * 4;
-    const int size   = stride * config.height;
-
-    int fd = syscall(SYS_memfd_create, "buf", 0);
-    ftruncate(fd, size);
-    uint8_t *pool_data = static_cast<uint8_t *>(mmap(nullptr, size * 2, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-    (void)pool_data;
-
-    internal->wl_shm_pool = wl_shm_create_pool(internal->wl_shm, fd, size);
-    internal->wl_buffer   = wl_shm_pool_create_buffer(internal->wl_shm_pool,
-                                                      0,
-                                                      config.width,
-                                                      config.height,
-                                                      stride,
-                                                      WL_SHM_FORMAT_XRGB8888);
-
-    wl_surface_attach(internal->wl_surface, internal->wl_buffer, 0, 0);
     wl_surface_commit(internal->wl_surface);
 
     return true;
