@@ -6,10 +6,10 @@ struct TestResult {
 
 using PFN_test = TestResult (*)();
 
-namespace Pastel::Tests {
+namespace angel::tests {
 void run_tests();
 void add_test(const char *name, PFN_test test);
-}  // namespace Pastel::Tests
+}  // namespace angel::tests
 
 #define TEST_ASSERT(expr)                                                            \
     do {                                                                             \
@@ -20,7 +20,7 @@ void add_test(const char *name, PFN_test test);
 
 #define TEST_FUNC(name)                    \
     TestResult test_##name();              \
-    namespace Pastel::Tests {              \
+    namespace angel::tests {               \
     struct Register_##name {               \
         Register_##name() {                \
             add_test(#name, &test_##name); \

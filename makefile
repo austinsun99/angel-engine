@@ -13,7 +13,7 @@ else
 	DIRFLAG := --no-print-directory
 endif
 
-MAKEFILES := pastel sandbox
+MAKEFILES := angel sandbox
 
 .PHONY: all $(MAKEFILES) clean
 .SILENT:

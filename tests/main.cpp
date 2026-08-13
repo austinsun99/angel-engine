@@ -2,7 +2,7 @@
 #include "angel_test.hpp"
 #include <core/logging/logger.h>
 
-namespace Pastel::Tests {
+namespace angel::tests {
 static std::unordered_map<const char *, PFN_test> tests;
 
 void add_test(const char *name, PFN_test test) {
@@ -14,24 +14,24 @@ void run_tests() {
     int pass      = 0;
     int fail      = 0;
 
-    for (auto const &[name, test] : ::Pastel::Tests::tests) {
+    for (auto const &[name, test] : ::angel::tests::tests) {
         ++num_tests;
 
-        CORE_LOG_INFO("Running test: %s", name);
+        AL_CORE_INFO("Running test: %s", name);
         TestResult res = test();
         if (!res.success) {
             ++fail;
-            CORE_LOG_ERROR("[x] Test %s in %s failed at: %d", name, res.name, res.line);
+            AL_CORE_ERROR("[x] Test %s in %s failed at: %d", name, res.name, res.line);
         } else {
             ++pass;
-            CORE_LOG_INFO("[✔]\n");
+            AL_CORE_INFO("[✔]\n");
         }
     }
 
-    CORE_LOG_INFO("\n\nTest Summary (%d) | Passing: %d | Failing: %d |", num_tests, pass, fail)
+    AL_CORE_INFO("\n\nTest Summary (%d) | Passing: %d | Failing: %d |", num_tests, pass, fail)
 }
-}  // namespace Pastel::Tests
+}  // namespace angel::tests
 
 int main(void) {
-    Pastel::Tests::run_tests();
+    angel::tests::run_tests();
 }

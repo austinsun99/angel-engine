@@ -1,7 +1,7 @@
 CC := gcc
 CXX := g++
 
-INCLUDES := -I../pastel
+INCLUDES := -I../angel
 DEPFLAGS := -MMD -MD
 WARNINGS :=
 DEBUGFLAGS :=
@@ -9,7 +9,7 @@ DEFINES :=
 OPT :=
 LDFLAGS :=
 
-LIBS := -lpastel
+LIBS := -langel
 RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
 
 #
@@ -55,9 +55,9 @@ DEPS := $(OBJS:.o=.d)
 
 ifeq ($(OS),Windows_NT)
 	EXT := .exe
-	POSTBUILD := cp $(ENGINE_LIB_DIR)/pastel.dll $(BIN_DIR)/ && \
+	POSTBUILD := cp $(ENGINE_LIB_DIR)/angel.dll $(BIN_DIR)/ && \
 				 echo && \
-				 echo "copying pastel.dll to bin dir. (windows only)"
+				 echo "copying angel.dll to bin dir. (windows only)"
 				
 else
 	EXT :=

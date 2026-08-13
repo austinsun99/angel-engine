@@ -1,7 +1,7 @@
 CC := gcc
 CXX := g++
 
-INCLUDES := -I../pastel
+INCLUDES := -I../angel
 DEPFLAGS := -MMD -MD
 WARNINGS := -Wall -Wextra -Werror -Wno-error=unused-parameter
 DEBUGFLAGS := -g
@@ -10,7 +10,7 @@ OPT := -O0
 LDFLAGS :=
 BUILD_DIR := ../build/debug
 
-LIBS := -lpastel
+LIBS := -langel
 RPATH := -Wl,-rpath,'$$ORIGIN/../lib'
 
 ENGINE_LIB_DIR := $(BUILD_DIR)/lib
@@ -34,9 +34,9 @@ DEPS := $(OBJS:.o=.d)
 
 ifeq ($(OS),Windows_NT)
 	EXT := .exe
-	POSTBUILD := cp $(ENGINE_LIB_DIR)/pastel.dll $(BIN_DIR)/ && \
+	POSTBUILD := cp $(ENGINE_LIB_DIR)/angel.dll $(BIN_DIR)/ && \
 				 echo && \
-				 echo "copying pastel.dll to bin dir. (windows only)"
+				 echo "copying angel.dll to bin dir. (windows only)"
 else
 	EXT :=
 	POSTBUILD :=
@@ -66,5 +66,9 @@ $(OBJ_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
 	$(info $<...)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR)/tests
+	rm -rf $(TARGET)
 
 -include $(DEPS)
