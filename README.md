@@ -12,11 +12,11 @@
     <li>
       <a href="#about-the-project">About The Project</a>
       <ul>
-        <li><a href="#design-philosophy">Built With</a></li>
+        <li><a href="#design-philosophy">Design Philosophy</a></li>
       </ul>
     </li>
-    <li>
-    <a href="#prerequisites">Prerequisites</a>
+    <li><a href="#prerequisites">Prerequisites</a></li>
+    <li><a href="#license">License</a></li>
   </ol>
 </details>
 
@@ -46,6 +46,9 @@ This project will attempt to minimize external dependencies/prerequisites as muc
 - c++17 (although, this will likely increase to c++20)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## License
+[MIT](LICENSE.txt)
 
 [vulkan_icon]: https://img.shields.io/badge/Vulkan-AE0F28?logo=Vulkan&logoColor=fff
 [cpp_icon]: https://img.shields.io/badge/C++-%2300599C.svg?logo=c%2B%2B&logoColor=white
