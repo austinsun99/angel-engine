@@ -5,47 +5,46 @@
 #include "renderer/vulkan_renderer.h"
 
 namespace Pastel {
-bool application_lifecycle();
-
-bool start_application() {
-    Memory::init_memory();
-    if (!application_lifecycle()) {
-        CORE_LOG_FATAL("Could not start application")
-    }
-    Memory::deinit_memory();
-    return true;
-}
-
-bool application_lifecycle() {
+bool Application::create(ApplicationCreateInfo create_info) {
     Platform::WindowConfig config = {
         .x                = 0,
         .y                = 0,
         .width            = 1920,
         .height           = 1080,
-        .application_name = "PASTEL Engine",
+        .application_name = create_info.application_name,
     };
 
-    Platform::WindowState window_state = Platform::WindowState();
+    Memory::init_memory();
     Logger::logger_init();
-    if (!window_state.open_window(config)) {
+    _window = Platform::Window();
+
+    if (!_window.open_window(config)) {
         CORE_LOG_FATAL("Failed to open window")
         return false;
     }
     Platform::clear_terminal_colour();
 
-    Renderer::Vulkan::VulkanRenderer renderer = Renderer::Vulkan::VulkanRenderer(window_state);
-    renderer.start();
-
-    while (window_state.running) {
-        window_state.update();
-        if (!window_state.pump_window()) {
-            window_state.running = false;
-        }
-        renderer.update_start();
-
-        // window_state.input.print_pressed_keys();
-    }
+    _renderer.init(_window, nullptr);
     return true;
+}
+
+bool Application::app_update() {
+    _window.update();
+    if (!_window.pump_window()) {
+        _window.running = false;
+        return false;
+    }
+    _renderer.update_start();
+
+    const double time = Platform::get_time();
+    _delta_time       = time - _prev_time;
+    _prev_time        = time;
+    return _window.running;
+}
+
+void Application::destroy() {
+    _window.deinit();
+    // Memory::deinit_memory();
 }
 
 }  // namespace Pastel

@@ -16,7 +16,7 @@ class VulkanRenderer {
    private:
     u32 _current_framebuffer_width  = 0;
     u32 _current_framebuffer_height = 0;
-    Platform::WindowState const &_window_state;
+    const Platform::Window* _window_state;
     VkAllocationCallbacks *_custom_allocator;
 
     VkInstance _instance;
@@ -47,12 +47,10 @@ class VulkanRenderer {
     void update_uniform_buffer(u32 current_image);
 
    public:
-    VulkanRenderer(Platform::WindowState const &window_state) : _window_state(window_state) {
-        _custom_allocator = nullptr;
-    }
+    VulkanRenderer() = default;
     ~VulkanRenderer();
 
-    void start();
+    void init(Platform::Window const& window_state, VkAllocationCallbacks* custom_allocator);
     void update_start();
     void update_end();
 };

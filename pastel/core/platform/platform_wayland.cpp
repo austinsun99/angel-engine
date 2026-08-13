@@ -74,13 +74,13 @@ const static struct {
         (void)states;
         if (width == 0 || height == 0) return;
 
-        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
-        state->width                 = width;
-        state->height                = height;
+        Platform::Window *state = static_cast<Platform::Window *>(data);
+        state->width            = width;
+        state->height           = height;
     }
     static void close(void *data, struct xdg_toplevel *xdg_toplevel) {
         (void)xdg_toplevel;
-        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
+        Platform::Window *state = static_cast<Platform::Window *>(data);
 
         state->running = false;
     }
@@ -112,9 +112,9 @@ const static struct {
         (void)serial;
         (void)surface;
 
-        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        const uint16_t mouse_x              = wl_fixed_to_int(surface_x);
-        const uint16_t mouse_y              = wl_fixed_to_int(surface_y);
+        Platform::Window *window_state = static_cast<Platform::Window *>(data);
+        const uint16_t mouse_x         = wl_fixed_to_int(surface_x);
+        const uint16_t mouse_y         = wl_fixed_to_int(surface_y);
         window_state->input.process_mouse_position(mouse_x, mouse_y);
     }
 
@@ -131,9 +131,9 @@ const static struct {
                        wl_fixed_t surface_y) {
         (void)wl_pointer;
         (void)time;
-        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        const int mouse_x                   = wl_fixed_to_int(surface_x);
-        const int mouse_y                   = wl_fixed_to_int(surface_y);
+        Platform::Window *window_state = static_cast<Platform::Window *>(data);
+        const int mouse_x              = wl_fixed_to_int(surface_x);
+        const int mouse_y              = wl_fixed_to_int(surface_y);
 
         // @fix: mouse position wraps around to ~65565 when nearing edge of window, supposedly because of wraparound.
         window_state->input.process_mouse_position(mouse_x, mouse_y);
@@ -148,9 +148,9 @@ const static struct {
         (void)wl_pointer;
         (void)serial;
         (void)time;
-        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        bool pressed                        = state == WL_POINTER_BUTTON_STATE_PRESSED;
-        Input::MouseButton mouse_button     = Input::MAX_BUTTONS;
+        Platform::Window *window_state  = static_cast<Platform::Window *>(data);
+        bool pressed                    = state == WL_POINTER_BUTTON_STATE_PRESSED;
+        Input::MouseButton mouse_button = Input::MAX_BUTTONS;
         switch (button) {
             case BTN_LEFT:
                 mouse_button = Input::MOUSE_LEFT;
@@ -236,8 +236,8 @@ const static struct {
         (void)wl_keyboard;
         (void)format;
 
-        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
-        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
+        Platform::Window *state = static_cast<Platform::Window *>(data);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
         PASTEL_ASSERT(format == WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1)
 
         char *map_shm = static_cast<char *>(mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0));
@@ -455,8 +455,8 @@ const static struct {
         (void)serial;
         (void)time;
 
-        Platform::WindowState *window_state = static_cast<Platform::WindowState *>(data);
-        InternalState *internal             = static_cast<InternalState *>(window_state->get_internal_state());
+        Platform::Window *window_state = static_cast<Platform::Window *>(data);
+        InternalState *internal        = static_cast<InternalState *>(window_state->get_internal_state());
 
         const xkb_keycode_t keycode = key + 8;
         xkb_keysym_t sym            = xkb_state_key_get_one_sym(internal->xkb_state, keycode);
@@ -505,8 +505,8 @@ const static struct {
 const static struct {
     static void capabilities(void *data, struct wl_seat *wl_seat, uint32_t capabilities) {
         (void)wl_seat;
-        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
-        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
+        Platform::Window *state = static_cast<Platform::Window *>(data);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         bool has_pointer  = capabilities & WL_SEAT_CAPABILITY_POINTER;
         bool has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
@@ -545,8 +545,8 @@ const static struct {
                        const char *interface,
                        uint32_t version) {
         (void)wl_registry;
-        Platform::WindowState *state = static_cast<Platform::WindowState *>(data);
-        InternalState *internal      = static_cast<InternalState *>(state->get_internal_state());
+        Platform::Window *state = static_cast<Platform::Window *>(data);
+        InternalState *internal = static_cast<InternalState *>(state->get_internal_state());
 
         if (strcmp(interface, wl_compositor_interface.name) == 0) {
             const uint32_t min_ver  = std::min<uint32_t>(7, version);
@@ -580,7 +580,7 @@ const static struct {
 
 namespace Pastel::Platform {
 
-WindowState::WindowState() {
+Window::Window() {
     running             = true;
     width               = 0;
     height              = 0;
@@ -588,7 +588,7 @@ WindowState::WindowState() {
     internal_state      = pt_memnew(Memory::MEMORY_CATEGORY_PLATFORM, InternalState);
 };
 
-WindowState::~WindowState() {
+void Window::deinit() {
     InternalState *internal = static_cast<InternalState *>(internal_state);
     xdg_surface_destroy(internal->xdg_surface);
     xdg_toplevel_destroy(internal->xdg_toplevel);
@@ -602,7 +602,7 @@ WindowState::~WindowState() {
     wl_seat_destroy(internal->wl_seat);
 
     wl_registry_destroy(internal->wl_registry);
-    wl_display_disconnect(internal->wl_display);
+    // @fix: causes segfault wl_display_disconnect(internal->wl_display);
 
     xkb_keymap_unref(internal->xkb_keymap);
     xkb_context_unref(internal->xkb_context);
@@ -610,14 +610,11 @@ WindowState::~WindowState() {
     pt_memdelete(Memory::MEMORY_CATEGORY_PLATFORM, internal);
 }
 
-void WindowState::update() {
-    prev_time    = current_time;
-    current_time = get_time();
-
+void Window::update() {
     input.input_update();
 }
 
-bool WindowState::open_window(const WindowConfig config) {
+bool Window::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
 
     internal->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
@@ -646,7 +643,7 @@ bool WindowState::open_window(const WindowConfig config) {
     return true;
 }
 
-bool WindowState::pump_window() {
+bool Window::pump_window() {
     const InternalState *internal = static_cast<InternalState *>(internal_state);
     wl_display *const &display    = internal->wl_display;
 
@@ -678,27 +675,19 @@ bool WindowState::pump_window() {
     return true;
 }
 
-double WindowState::get_time() {
+double get_time() {
     timespec time_out;
     clock_gettime(CLOCK_MONOTONIC_RAW, &time_out);
     return time_out.tv_sec + time_out.tv_nsec * 0.000000001;
 }
 
-double WindowState::get_delta_time() {
-    return current_time - prev_time;
-}
-
-void *WindowState::get_internal_state() {
+void *Window::get_internal_state() {
     return internal_state;
 }
 
-bool WindowState::console_is_initialized() {
-    return console_initialized;
-}
-
-bool WindowState::create_vulkan_surface(VkInstance const &vulkan_instance,
-                                        VkAllocationCallbacks *const &custom_allocator,
-                                        VkSurfaceKHR *out_vulkan_surface) const {
+bool Window::create_vulkan_surface(VkInstance const &vulkan_instance,
+                                   VkAllocationCallbacks *const &custom_allocator,
+                                   VkSurfaceKHR *out_vulkan_surface) const {
     const InternalState *internal = static_cast<InternalState *>(internal_state);
 
     const VkWaylandSurfaceCreateInfoKHR create_info{

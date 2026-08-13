@@ -54,7 +54,9 @@ VulkanRenderer::~VulkanRenderer() {
     vkDestroyInstance(_instance, _custom_allocator);
 }
 
-void VulkanRenderer::start() {
+void VulkanRenderer::init(Platform::Window const &window_state, VkAllocationCallbacks *custom_allocator) {
+    _window_state                                 = &window_state;
+    _custom_allocator                             = custom_allocator;
     VulkanCreateInstanceInfo create_instance_info = {
         .custom_allocator = _custom_allocator,
 
@@ -81,7 +83,7 @@ void VulkanRenderer::start() {
         CORE_LOG_FATAL("(Vulkan) Failed to create vulkan instance. Check log for details.")
     };
 
-    if (!_window_state.create_vulkan_surface(_instance, _custom_allocator, &_surface)) {
+    if (!_window_state->create_vulkan_surface(_instance, _custom_allocator, &_surface)) {
         CORE_LOG_FATAL("(Vulkan) Failed to create vulkan surface. Check log for details.")
     } else {
         CORE_LOG_INFO("(Vulkan) Successfully obtained vulkan surface.")
@@ -107,8 +109,8 @@ void VulkanRenderer::start() {
 
     _device.create_graphics_command_pool(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    _current_framebuffer_width  = _window_state.framebuffer_width();
-    _current_framebuffer_height = _window_state.framebuffer_height();
+    _current_framebuffer_width  = _window_state->framebuffer_width();
+    _current_framebuffer_height = _window_state->framebuffer_height();
     _swapchain.init(&_device, _custom_allocator, _surface);
     _swapchain.create_swapchain(_current_framebuffer_width, _current_framebuffer_height);
 
@@ -200,13 +202,13 @@ void VulkanRenderer::start() {
 }
 
 void VulkanRenderer::update_start() {
-    if (_current_framebuffer_width != _window_state.framebuffer_width()) {
+    if (_current_framebuffer_width != _window_state->framebuffer_width()) {
         _should_recreate_swapchain = true;
-        _current_framebuffer_width = _window_state.framebuffer_width();
+        _current_framebuffer_width = _window_state->framebuffer_width();
     }
-    if (_current_framebuffer_height != _window_state.framebuffer_height()) {
+    if (_current_framebuffer_height != _window_state->framebuffer_height()) {
         _should_recreate_swapchain  = true;
-        _current_framebuffer_height = _window_state.framebuffer_height();
+        _current_framebuffer_height = _window_state->framebuffer_height();
     }
 
     if (_should_recreate_swapchain) {
