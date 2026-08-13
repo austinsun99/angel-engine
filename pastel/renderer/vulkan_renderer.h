@@ -12,7 +12,7 @@ namespace Pastel::Renderer::Vulkan {
 
 #define FRAMES_IN_FLIGHT 2
 
-class VulkanRenderer {
+class PASTEL_API VulkanRenderer {
    private:
     u32 _current_framebuffer_width  = 0;
     u32 _current_framebuffer_height = 0;

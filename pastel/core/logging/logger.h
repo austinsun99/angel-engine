@@ -16,7 +16,7 @@ enum LogLevel {
 };
 
 void logger_init();
-void log_output(LogLevel level, const char *fmt, const char *file, int line, ...);
+PASTEL_API void log_output(LogLevel level, const char *fmt, const char *file, int line, ...);
 
 #define LOG_FATAL_ENABLED 1
 #define LOG_ERROR_ENABLED 1

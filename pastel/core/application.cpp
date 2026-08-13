@@ -15,8 +15,9 @@ bool Application::create(ApplicationCreateInfo create_info) {
     };
 
     Memory::init_memory();
-    Logger::logger_init();
     _window = Platform::Window();
+
+    Logger::logger_init();
 
     if (!_window.open_window(config)) {
         CORE_LOG_FATAL("Failed to open window")
@@ -44,7 +45,7 @@ bool Application::app_update() {
 
 void Application::destroy() {
     _window.deinit();
-    // Memory::deinit_memory();
+    Memory::deinit_memory();
 }
 
 }  // namespace Pastel

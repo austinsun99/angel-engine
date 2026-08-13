@@ -13,7 +13,7 @@ struct WindowConfig {
     const char *application_name;
 };
 
-class Window {
+class PASTEL_API Window {
    public:
     bool running;
     u32 width;

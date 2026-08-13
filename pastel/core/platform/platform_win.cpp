@@ -28,8 +28,6 @@ struct InternalState {
 
     HINSTANCE instance;
     HWND hwnd;
-
-    double clock_frequency_inverse;
 };
 
 // returns: dynamically allocated string
@@ -52,32 +50,23 @@ static void log_win_error_msg_fatal(DWORD error) {
     delete[] msg;
 }
 
-WindowState::WindowState() {
+Window::Window() {
     InternalState *internal = new InternalState();
     input                   = Input();
     running                 = true;
     width                   = 0;
     height                  = 0;
     internal_state          = internal;
-
-    LARGE_INTEGER clock_frequency;
-    if (QueryPerformanceFrequency(&clock_frequency) == 0) {
-        // This should be unreachable on Windows XP systems and later
-        MessageBox(nullptr, "Unable to obtain high-resolution performance counter", TEXT("Error"), MB_OK);
-    };
-    internal->clock_frequency_inverse = 1.0 / static_cast<double>(clock_frequency.QuadPart);
 }
 
-WindowState::~WindowState() {
+void Window::deinit() {
     delete static_cast<InternalState *>(internal_state);
 }
 
-void WindowState::update() {
-    prev_time    = current_time;
-    current_time = get_time();
+void Window::update() {
 }
 
-bool WindowState::open_window(const WindowConfig config) {
+bool Window::open_window(const WindowConfig config) {
     InternalState *internal = static_cast<InternalState *>(internal_state);
 
     CORE_LOG_INFO("Starting open window process...");
@@ -160,7 +149,7 @@ bool WindowState::open_window(const WindowConfig config) {
     return true;
 }
 
-bool WindowState::pump_window() {
+bool Window::pump_window() {
     MSG msg;
     const UINT msg_filter_min = 0;
     const UINT msg_filter_max = 0;
@@ -198,20 +187,23 @@ constexpr int terminal_colour_to_id(Io::TerminalColour colour) {
     return 0;
 }
 
-void WindowState::on_window_close() {
+void Window::on_window_close() {
     CORE_LOG_INFO("Windows: closing window")
 }
 
-double WindowState::get_time() {
-    InternalState *internal = static_cast<InternalState *>(internal_state);
+double get_time() {
+    LARGE_INTEGER clock_frequency;
+    if (QueryPerformanceFrequency(&clock_frequency) == 0) {
+        MessageBox(nullptr, "Unable to obtain high-resolution performance counter", TEXT("Error"), MB_OK);
+    };
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
-    return static_cast<double>(counter.QuadPart) * internal->clock_frequency_inverse;
+    return static_cast<double>(counter.QuadPart) * 1.0 / static_cast<double>(clock_frequency.QuadPart);
 }
 
-bool WindowState::create_vulkan_surface(VkInstance const &vulkan_instance,
-                                        VkAllocationCallbacks *const &custom_allocator,
-                                        VkSurfaceKHR *out_vulkan_surface) const {
+bool Window::create_vulkan_surface(VkInstance const &vulkan_instance,
+                                   VkAllocationCallbacks *const &custom_allocator,
+                                   VkSurfaceKHR *out_vulkan_surface) const {
     const InternalState *internal = static_cast<InternalState *>(internal_state);
 
     const VkWin32SurfaceCreateInfoKHR create_info = {
@@ -226,14 +218,6 @@ bool WindowState::create_vulkan_surface(VkInstance const &vulkan_instance,
         vkCreateWin32SurfaceKHR(vulkan_instance, &create_info, custom_allocator, out_vulkan_surface);
     return result == VK_SUCCESS;
 };
-
-double WindowState::get_delta_time() {
-    return current_time - prev_time;
-}
-
-bool WindowState::console_is_initialized() {
-    return console_initialized;
-}
 
 void console_write(const char *msg) {
     HANDLE console_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -258,16 +242,16 @@ void clear_terminal_colour() {
 }  // namespace Pastel::Platform
 
 static LRESULT window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
-    ::Pastel::Platform::WindowState *state;
+    ::Pastel::Platform::Window *state;
     if (msg == WM_CREATE) {
         CREATESTRUCT *create = reinterpret_cast<CREATESTRUCT *>(lparam);
-        state                = reinterpret_cast<::Pastel::Platform::WindowState *>(create->lpCreateParams);
+        state                = reinterpret_cast<::Pastel::Platform::Window *>(create->lpCreateParams);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state));
         return TRUE;
     }
 
     LONG_PTR data = GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    state         = reinterpret_cast<::Pastel::Platform::WindowState *>(data);
+    state         = reinterpret_cast<::Pastel::Platform::Window *>(data);
 
     switch (msg) {
         case WM_KEYDOWN:
