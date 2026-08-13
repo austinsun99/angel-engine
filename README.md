@@ -22,7 +22,7 @@
 
 </br>
 
-[![c++ 17][cpp_icon]]()\
+[![c++ 17][cpp_icon]](#)\
 [![Vulkan 1.4][vulkan_icon]](https://vulkan.org/)
 
 ## About The Project
@@ -44,8 +44,6 @@ This project will attempt to minimize external dependencies/prerequisites as muc
 - Windows or Linux Wayland (MacOS is currently not supported, nor is X11)
 - Vulkan 1.4
 - c++17 (although, this will likely increase to c++20)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## License
 [MIT](LICENSE.txt)
