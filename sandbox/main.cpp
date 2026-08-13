@@ -10,8 +10,8 @@ bool init() {
 
 void update(double dt) {
     static int frame = 0;
-    double fps = 1.f / dt;
-    CORE_LOG_DEBUG("frame: %d, fps: %f", frame, fps);
+    double fps       = 1.f / dt;
+    AL_CORE_DEBUG("frame: %d, fps: %f", frame, fps);
     ++frame;
 }
 
@@ -19,7 +19,7 @@ bool close() {
     return true;
 }
 
-bool Pastel::create_application(Pastel::EngineStartInfo start_info, Pastel::ApplicationCreateInfo *out_info) {
+bool angel::create_application(angel::EngineStartInfo start_info, angel::ApplicationCreateInfo *out_info) {
     (void)start_info;
     *out_info = {
         .application_name = "Engine",
