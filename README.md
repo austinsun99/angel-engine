@@ -35,9 +35,13 @@ The engine uses c++ and Vulkan 1.4 as the graphics API.
 See [Prerequisites](#prerequisites) for more info including operating system support.
 
 ### Design Philosophy
-It is important to note that this project is mainly a learning tool for myself. As a result, many design decisions are aimed at achieving this goal, rather than for the purpos of production.
+It is important to note that this project is mainly a learning tool for myself. As a result, many design decisions are aimed at achieving this goal, rather than for the purpose of production.
 
-This project will attempt to minimize external dependencies/prerequisites as much as possible. As a result, some items from STL will have a custom implementation. The only foreseeable external dependency that may be included are scripts related to parsing file formats.
+__Explicit Naming__: A core design philosophy I try my best to adhere to is explicit naming. For example, in std, std::sin(x) expects x to be in radians, but that is not explicit in the naming of the function. In Angel's math library, it will be explicit that the sin function requires radians, for example, the function may be named: angel::math::sinf_rad(x). Where the 'f' also indicates that this function deals with floats (rather than doubles).
+
+__Minimizing external dependencies__: This project will attempt to minimize external dependencies/prerequisites as much as possible. As a result, some items from STL will have a custom implementation. The only foreseeable external dependency that may be included are scripts related to parsing file formats.
+
+
 ## Prerequisites
 
 - Windows or Linux Wayland (MacOS is currently not supported, nor is X11)
