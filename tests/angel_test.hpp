@@ -29,4 +29,4 @@ void add_test(const char *name, PFN_test test);
     }                                      \
     TestResult test_##name()
 
-#define TEST_SUCCESS return TestResult{.success = true};
+#define TEST_SUCCESS TestResult{.success = true};

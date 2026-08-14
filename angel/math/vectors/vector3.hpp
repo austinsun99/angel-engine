@@ -1,10 +1,23 @@
 #pragma once
 
+#include "defines.h"
+
 namespace angel::math {
 struct Vector3 {
     union {
         struct {
-            float x, y, z;
+            union {
+                float x;
+                float r;
+            };
+            union {
+                float y;
+                float g;
+            };
+            union {
+                float z;
+                float b;
+            };
         };
         float values[3];
     };
@@ -18,68 +31,67 @@ struct Vector3 {
     Vector3 &operator=(const Vector3 &vec) = default;
     Vector3 &operator=(Vector3 &&vec)      = delete;
 
-    constexpr bool operator==(const Vector3 &right) const {
+    ANGEL_FORCE_INLINE constexpr const float &operator[](int i) const {
+        return values[i];
+    }
+
+    ANGEL_FORCE_INLINE constexpr bool operator==(const Vector3 &right) const {
         return this->x == right.x && this->y == right.y && this->z == right.z;
     }
 
-    constexpr Vector3 operator+(const Vector3 &right) const {
+    ANGEL_FORCE_INLINE constexpr Vector3 operator+(const Vector3 &right) const {
         return Vector3(this->x + right.x, this->y + right.y, this->z + right.z);
     };
 
-    constexpr Vector3 &operator+=(const Vector3 &right) {
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator+=(const Vector3 &right) {
         this->x += right.x;
         this->y += right.y;
         this->z += right.z;
         return *this;
     }
 
-    constexpr Vector3 operator-(const Vector3 &right) const {
+    ANGEL_FORCE_INLINE constexpr Vector3 operator-(const Vector3 &right) const {
         return Vector3(this->x - right.x, this->y - right.y, this->z - right.z);
     };
 
-    constexpr Vector3 &operator-=(const Vector3 &right) {
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator-=(const Vector3 &right) {
         this->x -= right.x;
         this->y -= right.y;
         this->z -= right.z;
         return *this;
     }
 
-    constexpr Vector3 operator*(const Vector3 &right) const {
+    ANGEL_FORCE_INLINE constexpr Vector3 operator*(const Vector3 &right) const {
         return Vector3(this->x * right.x, this->y * right.y, this->z * right.z);
     }
 
-    constexpr Vector3 operator*(const float fac) const {
+    ANGEL_FORCE_INLINE constexpr Vector3 operator*(const float fac) const {
         return Vector3(this->x * fac, this->y * fac, this->z * fac);
     }
 
-    constexpr Vector3 &operator*=(const Vector3 &right) {
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator*=(const Vector3 &right) {
         this->x *= right.x;
         this->y *= right.y;
         this->z *= right.z;
         return *this;
     }
 
-    constexpr Vector3 &operator*=(const float &fac) {
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator*=(const float &fac) {
         this->x *= fac;
         this->y *= fac;
         this->z *= fac;
         return *this;
     }
 
-    constexpr Vector3 operator/(const Vector3 &right) const {
+    ANGEL_FORCE_INLINE constexpr Vector3 operator/(const Vector3 &right) const {
         return Vector3(this->x / right.x, this->y / right.y, this->z / right.z);
     }
 
-    constexpr Vector3 &operator/=(const Vector3 &right) {
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator/=(const Vector3 &right) {
         this->x /= right.x;
         this->y /= right.y;
         this->z /= right.z;
         return *this;
     }
-
-    constexpr float dot(const Vector3 &right) const {
-        return this->x * right.x + this->y * right.y + this->z * right.z;
-    }
-};
-
+};  // namespace angel::math
 }  // namespace angel::math
