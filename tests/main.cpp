@@ -1,9 +1,9 @@
-#include <unordered_map>
+#include <map>
 #include "angel_test.hpp"
 #include <core/logging/logger.h>
 
 namespace angel::tests {
-static std::unordered_map<const char *, PFN_test> tests;
+static std::map<const char *, PFN_test> tests;
 
 void add_test(const char *name, PFN_test test) {
     tests.insert({name, test});
@@ -24,7 +24,7 @@ void run_tests() {
             AL_CORE_ERROR("[x] Test %s in %s failed at: %d", name, res.name, res.line);
         } else {
             ++pass;
-            AL_CORE_INFO("[✔]\n");
+            AL_CORE_INFO("[✔]");
         }
     }
 

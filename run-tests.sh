@@ -1,3 +1,4 @@
+make BUILD=DEBUG
 make -C ./tests clean
 make -C ./tests
 
