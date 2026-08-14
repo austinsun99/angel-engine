@@ -28,3 +28,5 @@ void add_test(const char *name, PFN_test test);
     } name##_registrator;                  \
     }                                      \
     TestResult test_##name()
+
+#define TEST_SUCCESS return TestResult{.success = true};
