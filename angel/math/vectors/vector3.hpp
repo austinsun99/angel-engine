@@ -87,10 +87,32 @@ struct Vector3 {
         return Vector3(this->x / right.x, this->y / right.y, this->z / right.z);
     }
 
+    ANGEL_FORCE_INLINE constexpr Vector3 operator/(const float right) const {
+        return Vector3(this->x / right, this->y / right, this->z / right);
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector3 operator/(const double right) const {
+        return Vector3(this->x / right, this->y / right, this->z / right);
+    }
+
     ANGEL_FORCE_INLINE constexpr Vector3 &operator/=(const Vector3 &right) {
         this->x /= right.x;
         this->y /= right.y;
         this->z /= right.z;
+        return *this;
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator/=(const float right) {
+        this->x /= right;
+        this->y /= right;
+        this->z /= right;
+        return *this;
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector3 &operator/=(const double right) {
+        this->x /= right;
+        this->y /= right;
+        this->z /= right;
         return *this;
     }
 };  // namespace angel::math

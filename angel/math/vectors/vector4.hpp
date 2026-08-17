@@ -95,6 +95,14 @@ struct Vector4 {
         return Vector4(this->x / right.x, this->y / right.y, this->z / right.z, this->w / right.w);
     }
 
+    ANGEL_FORCE_INLINE constexpr Vector4 operator/(const float right) const {
+        return Vector4(this->x / right, this->y / right, this->z / right, this->w / right);
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector4 operator/(const double right) const {
+        return Vector4(this->x / right, this->y / right, this->z / right, this->w / right);
+    }
+
     ANGEL_FORCE_INLINE constexpr Vector4 &operator/=(const Vector4 &right) {
         this->x /= right.x;
         this->y /= right.y;
@@ -102,5 +110,22 @@ struct Vector4 {
         this->w /= right.w;
         return *this;
     }
+
+    ANGEL_FORCE_INLINE constexpr Vector4 &operator/=(const float right) {
+        this->x /= right;
+        this->y /= right;
+        this->z /= right;
+        this->w /= right;
+        return *this;
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector4 &operator/=(const double right) {
+        this->x /= right;
+        this->y /= right;
+        this->z /= right;
+        this->w /= right;
+        return *this;
+    }
+
 };
 }  // namespace angel::math

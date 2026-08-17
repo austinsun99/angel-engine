@@ -75,9 +75,29 @@ struct Vector2 {
         return Vector2(this->x / right.x, this->y / right.y);
     }
 
+    ANGEL_FORCE_INLINE constexpr Vector2 operator/(const float right) const {
+        return Vector2(this->x / right, this->y / right);
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector2 operator/(const double right) const {
+        return Vector2(this->x / right, this->y / right);
+    }
+
     ANGEL_FORCE_INLINE constexpr Vector2 &operator/=(const Vector2 &right) {
         this->x /= right.x;
         this->y /= right.y;
+        return *this;
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector2 &operator/=(const float right) {
+        this->x /= right;
+        this->y /= right;
+        return *this;
+    }
+
+    ANGEL_FORCE_INLINE constexpr Vector2 &operator/=(const double right) {
+        this->x /= right;
+        this->y /= right;
         return *this;
     }
 };

@@ -23,6 +23,10 @@ ANGEL_FORCE_INLINE constexpr static u64 powf(float b, u64 n) {
     return b;
 }
 
+ANGEL_FORCE_INLINE constexpr static float sqrtf(float v) {
+    return std::sqrtf(v);
+}
+
 ANGEL_FORCE_INLINE constexpr static u64 fac(u64 n) {
     if (n == 0 || n == 1) return 1;
     u64 result = n;
