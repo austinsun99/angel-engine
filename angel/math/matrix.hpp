@@ -1,25 +1,23 @@
 #pragma once
 
-#include <cstddef>
 #include "angel_types.h"
 #include "core/logging/asserts.h"
-#include "core/logging/logger.h"
 #include "defines.h"
 namespace angel::math {
 
-template <int r, int c>
+template <u64 r, u64 c>
 class Matrixf {
    private:
     float _elems[r * c];
-    const u64 _size;
+    static constexpr u64 _size = r * c;
 
    public:
-    Matrixf() : _size(r * c) {
+    Matrixf() {
         for (u64 i = 0; i < _size; ++i) {
             _elems[i] = 0;
         }
     }
-    Matrixf(const float (&elems)[r * c]) : _size(r * c) {
+    Matrixf(const float (&elems)[r * c]) {
         for (u64 i = 0; i < _size; ++i) {
             _elems[i] = elems[i];
         }
@@ -33,6 +31,11 @@ class Matrixf {
         return _elems[row * c + col];
     }
 
+    // Does not do any bounds checking. 0 indexed
+    ANGEL_FORCE_INLINE constexpr const float *operator[](u64 row) const {
+        return _elems + row * c;
+    }
+
     // 0 indexed
     ANGEL_FORCE_INLINE constexpr bool is_valid_index(u64 row, u64 col) const {
         return row < r && col < c;
@@ -44,7 +47,7 @@ class Matrixf {
         return true;
     }
 
-    ANGEL_FORCE_INLINE constexpr Matrixf<r, c> operator+(const Matrixf<r, c> &other) {
+    ANGEL_FORCE_INLINE constexpr const Matrixf<r, c> operator+(const Matrixf<r, c> &other) const {
         float temp[_size];
         for (u64 i = 0; i < _size; ++i) {
             temp[i] = _elems[i] + other._elems[i];
@@ -59,7 +62,7 @@ class Matrixf {
         return *this;
     }
 
-    ANGEL_FORCE_INLINE constexpr Matrixf<r, c> operator-(const Matrixf<r, c> &other) {
+    ANGEL_FORCE_INLINE constexpr const Matrixf<r, c> operator-(const Matrixf<r, c> &other) const {
         float temp[_size];
         for (u64 i = 0; i < _size; ++i) {
             temp[i] = _elems[i] - other._elems[i];
@@ -74,16 +77,21 @@ class Matrixf {
         return *this;
     }
 
-    ANGEL_FORCE_INLINE constexpr void print() {
-        AL_CORE_DEBUG("size (%d):", _size);
-        for (u64 i = 0; i < _size; ++i) {
-            AL_CORE_DEBUG("(%d): %f", i, _elems[i]);
-        }
+    ANGEL_FORCE_INLINE constexpr u64 rows_count() {
+        return r;
+    }
+
+    ANGEL_FORCE_INLINE constexpr u64 cols_count() {
+        return c;
     }
 };
 
+typedef Matrixf<4, 4> Matrix4x4;
+typedef Matrixf<3, 3> Matrix3x3;
+typedef Matrixf<2, 2> Matrix2x2;
+
 namespace matrix {
-template <int r, int c1, int c2>
+template <u64 r, u64 c1, u64 c2>
 ANGEL_FORCE_INLINE static constexpr Matrixf<r, c2> mult(const Matrixf<r, c1> &left, const Matrixf<c1, c2> &right) {
     float elems[r * c2] = {};
     for (u64 row = 0; row < r; ++row) {

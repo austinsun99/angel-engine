@@ -2,7 +2,7 @@ make BUILD=DEBUG
 make -C ./tests clean
 make -C ./tests
 
-clear
+# clear
 echo "----- RUNNING TESTS -----"
 echo
 ./build/debug/bin/angel_tests
