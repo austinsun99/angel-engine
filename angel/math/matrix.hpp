@@ -3,6 +3,7 @@
 #include "angel_types.h"
 #include "core/logging/asserts.h"
 #include "defines.h"
+#include "angel_math.hpp"
 namespace angel::math {
 
 template <u64 r, u64 c>
@@ -105,6 +106,34 @@ ANGEL_FORCE_INLINE static constexpr Matrixf<r, c2> mult(const Matrixf<r, c1> &le
     }
     return Matrixf<r, c2>(elems);
 }
+
+ANGEL_FORCE_INLINE static const Matrixf<2, 2> rotation_matrixf_2d(float rad) {
+    float sin = math::sinf_rad(rad);
+    float cos = math::cosf_rad(rad);
+    return Matrixf<2, 2>({cos, -sin, sin, cos});
+}
+
+ANGEL_FORCE_INLINE static const Matrixf<3, 3> rotation_matrixf_3d(float rz, float ry, float rx) {
+    const float sinz = math::sinf_rad(rz);
+    const float cosz = math::cosf_rad(rz);
+    const float siny = math::sinf_rad(ry);
+    const float cosy = math::cosf_rad(ry);
+    const float sinx = math::sinf_rad(rx);
+    const float cosx = math::cosf_rad(rx);
+
+    const float e1 = cosz * cosy;
+    const float e2 = cosz * siny * sinx - sinz * cosx;
+    const float e3 = cosz * siny * cosx + sinz * sinx;
+    const float e4 = sinz * cosy;
+    const float e5 = sinz * siny * sinx + cosz * cosx;
+    const float e6 = sinz * siny * cosx - cosz * sinx;
+    const float e7 = -siny;
+    const float e8 = cosy * sinx;
+    const float e9 = cosy * cosx;
+
+    return Matrixf<3, 3>({e1, e2, e3, e4, e5, e6, e7, e8, e9});
+}
+
 }  // namespace matrix
 
 }  // namespace angel::math
